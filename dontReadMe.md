@@ -40,4 +40,53 @@ mm/dd/yyyy:
 今天就到这里。咱们，明(hou)天(hui)再(wu)见(qi)。
 
 
+07/15/2016
 
+开发技巧：
+一。VISUAL IT NOW。尽量地可视化你的代码里的数据。在独立开发的时候，这招
+肯定是很有用的。真正地看到你的代码正常运行之后，你自然会有更多的信心嘛。
+
+二。以文件为基本单位。每个源文件都尽量地简洁。每个源文件尽量地只实现一个
+功能。
+
+关键词：
+对象：方块。方块群。是否下落完成：做属性。
+# square.ifFallen = {true, false};
+接口要定义得尽量简洁。
+
+界面层。
+
+今天要把一周目的开发计划做好。
+
+
+var square # // should be a constructor.
+function as a constructor.
+
+::square = {
+	.shape_code;
+	.ifFallen;    #方块是否已经下落完毕？
+	.position = {x: x, y: y};
+	.
+	
+};
+::eventProcessor = {
+	//这里是消息处理器。玩家做出的各种操作都会在此处被转化为具体的，
+	//可被controller识别的消息。
+	//等一下我们就要对消息的种类进行讨论。
+};
+::controller = {
+	//这里是控制器。玩家生成的消息都会被发送到这里。
+	.squareContainer = #一个10X15的二维数组。
+	.squareSequence = #一个以square为元素的元组.
+	.getContainer() = #一个get函数。访问器吧。
+	.pushNewSquare() = #向squareSequence中推送一个新的方块。
+	.getIndexOfFallingSquare() = 
+	.gameMainLoop() = #游戏主循环啊！！！
+	.
+};
+::square_shape = {
+	//该对象专门储存俄罗斯方块的各种可能的形状。这样一来，我们就
+	//只需把代号而不用把具体
+	//的形状储存到方块对象里面了。
+	//这里储存了大量的4X4二维数组。
+}
