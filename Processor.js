@@ -1,6 +1,9 @@
 /*  file:
 				name: Processor.js;
 				mker: fire_rain(alone);
+		comment:
+				这是数据层和界面的接桥。Processor控制着界面的样式，
+				同时还将数据层中的信息读取起来，然后“画”到界面上。
 */
 
 var Processor = {
@@ -38,6 +41,5 @@ var Processor = {
 
 /* Game - - Start! */
 
-alert("111");
 Processor.gameMainLoop ();
 
