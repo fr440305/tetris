@@ -125,3 +125,40 @@ v0-1：简陋界面+田形方块；
 不上机。把该在纸上做好的东西都做好。
 
 完毕。后会无期。
+
+07/18/2016:
+啊啊啊，今天也完成了该完成的任务了呢。真是不错啊。果然，我若是一
+认真起来，产率还是可以和母猪媲美的嘛。嗯，俗话说，高产似母猪。
+就是这样。正如血是受伤的符号一样，母猪也是高产的符号（neta自
+《褐色鸟群》）
+
+小游戏的架构也已经想好了。如下：
+
+::SquareContainer = {
+	grids[10][15];
+} {
+	getGrids();
+	pushSquare();
+	isDead();
+};
+
+::SquareFalling = {
+	shape;
+	position;
+} {
+	moveSquare();
+	rotateSquare();
+	initSquare();
+	isSquareFallen();
+};
+
+::Processor = {
+	is_dead;
+} {
+	eventLoad();
+	eventResize();
+	//...... ;
+	gameMainLoop();
+};
+
+嘛，大概就是这样。今天晚上可能还会写一点。后会无期。
