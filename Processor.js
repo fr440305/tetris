@@ -13,8 +13,8 @@ var Processor = {
 			container_row = square_container.insertRow (i);
 			for (j = 0; j <= 9; j++) {
 				container_cell = container_row.insertCell (j);
-				container_cell.style.width = "10px";
-				container_cell.style.height = "10px";
+				container_cell.style.width = "20px";
+				container_cell.style.height = "20px";
 				container_cell.style.backgroundColor = "#000000";
 
 			}
@@ -24,7 +24,8 @@ var Processor = {
 	},
 
 	eventResize: function () {
-		
+		//在body的onload和onresize中都会调用该函数。
+		//以后再慢慢写吧。
 	},
 
 
