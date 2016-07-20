@@ -19,9 +19,16 @@
 	</head>
 	<body>
 		<table id = "_square_container">	</table>
+		<p id = "_test_block"> </p>
+		<script type = "text/javascript" src="./TestBlock.js"> </script>
+
+		<script type = "text/javascript" src="./SquareFalling.js"> </script>
 		<script type = "text/javascript" src="./Processor.js"> </script>
-		<script type = "text.javascript">
-			alert("111");
+		
+		<script type = "text/javascript">
+			TestBlock.sendMsg("111");
+			TestBlock.sendMsg("222");
+			//alert("111");
 		</script>
 	</body>
 </html>
