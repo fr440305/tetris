@@ -1,5 +1,4 @@
 <!doctype html>
-
 <!--
 	proj:
 		name: Tertris;
@@ -17,18 +16,89 @@
 	<head>
 		<title>Tertris </title>
 	</head>
-	<body>
+	<body onkeydown = "return EventProcessor.eventKeyDown(event);">
 		<table id = "_square_container">	</table>
 		<p id = "_test_block"> </p>
-		<script type = "text/javascript" src="./TestBlock.js"> </script>
 
-		<script type = "text/javascript" src="./SquareFalling.js"> </script>
-		<script type = "text/javascript" src="./Processor.js"> </script>
+		<!-- Definition -->
+		<script type = "text/javascript" src = "./SquareFalling.js"> 
+		</script> 
+		<script type = "text/javascript" src = "./Grid.js">
+		</script>
 		
 		<script type = "text/javascript">
-			TestBlock.sendMsg("111");
-			TestBlock.sendMsg("222");
-			//alert("111");
+			var EventProcessor = {
+				is_left_excitated: 0,
+				is_right_excitated: 0,
+				// function //
+				eventKeyDown: undefined,
+				eventKeyUp: undefined
+			};
+
+			EventProcessor.eventKeyDown = function (e) {
+				var keynum = e.which;
+				var keynum_move_map = [];
+				var keynum_rotate_map = [];
+				keynum_move_map['H'.charCodeAt(0)] = "left";
+				keynum_move_map['h'.charCodeAt(0)] = "left";
+				keynum_move_map['A'.charCodeAt(0)] = "left";
+				keynum_move_map['a'.charCodeAt(0)] = "left";
+				keynum_move_map['L'.charCodeAt(0)] = "right";
+				keynum_move_map['l'.charCodeAt(0)] = "right";
+				keynum_move_map['D'.charCodeAt(0)] = "right";
+				keynum_move_map['d'.charCodeAt(0)] = "right";
+
+				keynum_rotate_map['W'.charCodeAt(0)] = "";
+				keynum_rotate_map['w'.charCodeAt(0)] = "";
+				keynum_rotate_map['S'.charCodeAt(0)] = "";
+				keynum_rotate_map['s'.charCodeAt(0)] = "";
+
+				if (keynum_move_map[keynum] !== undefined) {
+					SquareFalling.moveSquare(keynum_move_map[keynum]);
+				}
+				if (keynum_rotate_map[keynum] !== undefined) {
+					SquareFalling.rotateSquare(keynum_move_map[keynum]);
+				}
+				SquareFalling.drawFallingSquare();
+				Grid.drawGrid();
+			};
+
+		</script>
+
+		<script type = "text/javascript">
+			var initGrid = function () {
+				var _Table = document.getElementById("_square_container");
+				var tab_row, tab_col;
+				for (tab_row = 0; tab_row <= 15; tab_row++) {
+					_Table.insertRow(tab_row);
+					for (tab_col = 0; tab_col <= 9; tab_col++) {
+						_Table.rows[tab_row].insertCell(tab_col);
+						_Table.rows[tab_row].cells[tab_col].innerHTML = "P";
+					}
+				}
+			};
+
+			var gameLoop = function () {
+				if (SquareFalling.moveSquare("down") === true) {
+					SquareFalling.drawFallingSquare ();
+					Grid.drawGrid ();
+				} else {
+					Grid.addSquare(SquareFalling);
+					SquareFalling.createSquare ();
+				}
+			};
+		</script>
+
+		<script type = "text/javascript">
+
+		</script> <!-- End Of Defination -->
+
+		<script type = "text/javascript"> <!-- Execution -->
+			initGrid ();
+			Grid.initMatrix();
+			SquareFalling.createSquare();
+			SquareFalling.drawFallingSquare();
+			var Timer = setInterval ("gameLoop()", 1000);
 		</script>
 	</body>
 </html>
