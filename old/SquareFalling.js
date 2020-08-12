@@ -1,7 +1,6 @@
 /*
 	FallingSquare.js
 	fire_rain
-	Weishu Tan.
 	8/16/2016
 */
 
