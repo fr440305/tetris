@@ -93,12 +93,23 @@ function GameState(rowSize, colSize) {
 	}
 }
 
-GameState.prototype.pauseGame = function() {
-	this.isPaused = true;
+GameState.prototype.setPauseStatus = function(command) {
+	switch (command) {
+		case 'pause':
+			this.isPaused = true; break;
+		case 'cont':
+			this.isPaused = false; break;
+		case 'toggle':
+			this.isPaused = !this.isPaused; break;
+	}
 }
 
-GameState.prototype.continueGame = function() {
-	this.isPaused = false;
+GameState.prototype._cleanupMatrix = function() {
+	for (let r = 0; r < this.rowSize; r++) {
+		for (let c = 0; c < this.colSize; c++) {
+			this.matrix[r][c] = 0; // @Todo: doctionary rather than number...
+		}
+	}
 }
 
 GameState.prototype._writeCurrentTetriminoToMatrix = function() {
@@ -114,36 +125,45 @@ GameState.prototype._writeCurrentTetriminoToMatrix = function() {
 }
 
 GameState.prototype._rotateCurrentTetrimino = function(direction) {
+	// This operation may or may not success. If not success, return false.
+
 	let r = [];
-	let len = this.currentTetrimino.mat.length;
+	let tetriminoLength = this.currentTetrimino.mat.length;
 
 	// spin:
 	const rotmap = {
 		'l': { '9': L33, '16': L44 },
 		'r': { '9': R33, '16': R44 }
-	}[direction][len.toString()];
+	}[direction][tetriminoLength.toString()];
 
-	for (let i = 0; i < len; i++) {
+	for (let i = 0; i < tetriminoLength; i++) {
 		r[i] = this.currentTetrimino.mat[rotmap[i]];
 	}
 
 	// @Todo: calibration.
 
-	for (let i = 0; i < len; i++) {
+	// 
+	for (let i = 0; i < tetriminoLength; i++) {
 		this.currentTetrimino.mat[i] = r[i];
 	}
 }
 
 GameState.prototype.update = function() {
+	if (this.isPaused) {
+		return;
+	}
+
+	// @Cleanup: 
 	this._rotateCurrentTetrimino('l');
+
 	this._writeCurrentTetriminoToMatrix();
 }
 
-function Renderer() {
+function Renderer(rowSize, colSize) {
 	this.elemGameMatrix = document.getElementById('GameMatrix');
 	let matrixSize = this.elemGameMatrix.dataset.matrixSize;
-	this.rowSize = matrixSize.split('x')[0];
-	this.colSize = matrixSize.split('x')[1];
+	this.rowSize = rowSize;
+	this.colSize = colSize;
 	this.cells = [];
 
 	this.elemGameMatrix.innerHTML = ''; // fine when efficiency is not critical.
