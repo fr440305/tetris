@@ -126,24 +126,37 @@ function GameState(rowSize, colSize) {
 	};
 	this.rowSize = rowSize;
 	this.colSize = colSize;
-	this.isPaused = false;
-	this.isGameOver = false;
+
+	this.isPaused = false; // From pause to continue: 3, 2, 1, Go!
+	this.lastPauseTime = 0;
+	this.lastContinueTime = 0;
+	this.lastGameOverTime = 0;
 
 	this.historyTetriminos = newMatrix(this.rowSize, this.colSize, 0);
 }
 
-GameState.prototype.setPauseStatus = function(command) {
+GameState.prototype.setPauseStatus = function(command, ts) {
 	switch (command) {
 		case 'pause':
-			this.isPaused = true; break;
+			this.isPaused = true;
+			this.lastPauseTime = ts;
+			break;
 		case 'cont':
-			this.isPaused = false; break;
+			this.isPaused = false;
+			this.lastContinueTime = ts;
+			break;
 		case 'toggle':
-			this.isPaused = !this.isPaused; break;
+			if (this.isPaused) {
+				this.lastContinueTime = ts;
+			} else {
+				this.lastPauseTime = ts;
+			}
+			this.isPaused = !this.isPaused;
+			break;
 	}
 }
 
-GameState.prototype._moveCurrentTetrimino = function(direction) {
+GameState.prototype.moveCurrentTetrimino = function(direction) {
 	// @Incomplete.
 	switch (direction) {
 		case 'l':
@@ -153,12 +166,12 @@ GameState.prototype._moveCurrentTetrimino = function(direction) {
 			this.currentTetrimino.c += 1;
 			break;
 		case 'd':
-			this.currentTetrimino.r -= 1;
+			this.currentTetrimino.r += 1;
 			break;
 	}
 }
 
-GameState.prototype._rotateCurrentTetrimino = function(direction) {
+GameState.prototype.spinCurrentTetrimino = function(direction) {
 	// @Incomplete.
 	// This operation may or may not success.
 	// If not success, return false.
@@ -166,7 +179,7 @@ GameState.prototype._rotateCurrentTetrimino = function(direction) {
 	let r = [];
 	let tetriminoLength = this.currentTetrimino.mat.length;
 
-	// spin:
+	// Rotate:
 	const rotmap = {
 		'l': { '9': L33, '16': L44 },
 		'r': { '9': R33, '16': R44 }
@@ -182,18 +195,23 @@ GameState.prototype._rotateCurrentTetrimino = function(direction) {
 	// @Todo: Calibration. If calibration failed, return false
 	// and make no change.
 	
+	// Replace:
 	for (let i = 0; i < tetriminoLength; i++) {
 		this.currentTetrimino.mat[i] = r[i];
 	}
 }
 
-GameState.prototype.update = function() {
+// GameState.update updates the info of the game state.
+//
+// @par ts Number: Timestamp given by window.requestAnimationFrame.
+//
+GameState.prototype.update = function(ts) {
 	if (this.isPaused || this.isGameOver) {
 		return;
 	}
 
 	// @Cleanup: 
-	this._moveCurrentTetrimino('r');
+	this.moveCurrentTetrimino('d');
 }
 
 function Renderer(rowSize, colSize) {
@@ -240,7 +258,12 @@ Renderer.prototype._writeCurrentTetriminoToMatrix = function(currentTetrimino, m
 	}
 }
 
-Renderer.prototype.render = function(gameState) {
+// Render.render renders the game state onto the screen.
+//
+// @par gameState GameState : The GameState.
+// @par ts Number           : Timestamp given by window.requestAnimationFrame.
+//
+Renderer.prototype.render = function(gameState, ts) {
 	this._cleanupMatrix(this.matrix, this.rowSize, this.colSize);
 	this._writeCurrentTetriminoToMatrix(gameState.currentTetrimino, this.matrix);
 
@@ -262,13 +285,17 @@ function EventHub(keyConfig) {
 	this.eventQueue = [];
 
 	this.keyConfig = keyConfig || {
-		moveLeft: 'A',
-		moveRight: 'D',
-		moveDown: 'S',
-		hardDrop: 'W',
-
-		rotateLeft: 'J',
-		rotateRight: 'K'
+		moveKeys: {
+			'A': 'l',
+			'D': 'r',
+			'S': 'd',
+		},
+		spinKeys: {
+			'J': 'l',
+			'K': 'r'
+		},
+		hardDropKey: 'W',
+		pauseToggleKey: ' '
 	};
 
 	this._listen();
@@ -284,8 +311,25 @@ EventHub.prototype._pushEvent = function(eventType, data) {
 
 EventHub.prototype._listen = function() {
 	// @Incomplete
+	let _this = this;
 
-	// @Todo: Key binding according to this.keyConfig.
+	document.body.addEventListener('keydown', function(e) {
+		e = e || window.event;
+		e = e.keyCode || e.which;
+		let key = String.fromCharCode(e);
+		if (key === _this.keyConfig.pauseToggleKey) {
+			_this._pushEvent('setPauseStatus', 'toggle');
+		} else if (key === _this.keyConfig.hardDropKey) {
+			_this._pushEvent('hardDropTetrimino', '');
+		} else if (_this.keyConfig.moveKeys[key] !== undefined) {
+			_this._pushEvent('moveTetrimino', _this.keyConfig.moveKeys[key]);
+		} else if (_this.keyConfig.spinKeys[key] !== undefined) {
+			_this._pushEvent('spinTetrimino', _this.keyConfig.spinKeys[key]);
+		} else {
+			// @Fatal. Should not happen!
+			console.log('Should not happen!');
+		}
+	});
 }
 
 EventHub.prototype.fetchEvent = function() {
@@ -296,18 +340,67 @@ EventHub.prototype.fetchEvent = function() {
 	return this.eventQueue.pop();
 }
 
-function GameEngine() {
+function GameEngine(gameStateConstructor, rendererConstructor, eventHubConstructor, config) {
+	this.gameState = new gameStateConstructor(config.rowSize, config.colSize);
+	this.renderer = new rendererConstructor(config.rowSize, config.colSize);
+	this.eventHub = new eventHubConstructor(config.keyConfig);
+
+	this.config = config;
+
+	this.tsOffset = 0; // Set just before requestAnimationFrame starts.
+	this.tsLastUpdate = 0;
+
+	this._run();
 }
 
-GameEngine.prototype._handleEvents = function() {
+GameEngine.prototype._handleEvents = function(ts) {
+	while (true) {
+		const gameEvent = this.eventHub.fetchEvent();
+
+		if (gameEvent === null) {
+			return;
+		}
+
+		switch (gameEvent.eventType) {
+			case 'moveTetrimino':
+				this.gameState.moveCurrentTetrimino(gameEvent.data);
+				break;
+			case 'spinTetrimino':
+				this.gameState.spinCurrentTetrimino(gameEvent.data);
+				break;
+			case 'setPauseStatus':
+				this.gameState.setPauseStatus(gameEvent.data, ts + this.tsOffset);
+		}
+	}
 }
 
-// --debug--
+GameEngine.prototype._loop = function(ts) {
+	this._handleEvents(ts);
 
-let GS = new GameState(20, 10);
-let R = new Renderer(20, 10);
-GS.update();
-R.render(GS);
+	if (ts - this.tsLastUpdate > this.config.elapsed) {
+		this.tsLastUpdate = ts;
+		this.gameState.update(ts);
+	}
+
+	this.renderer.render(this.gameState, ts);
+}
+
+GameEngine.prototype._run = function() {
+	this.animationTimestampOffset = performance.now();
+
+	let _this = this;
+	(function loopWarpper(ts) {
+		_this._loop(ts);
+		window.requestAnimationFrame(loopWarpper);
+	})();
+}
+
+let GE = new GameEngine(GameState, Renderer, EventHub, {
+	rowSize: 20,
+	colSize: 10,
+	elapsed: 1000, // [ms]
+	keyConfig: false // Default configuration.
+});
 
 
 
