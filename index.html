@@ -1,0 +1,190 @@
+<!doctype html>
+
+<html>
+<head>
+	<meta charset="utf8">
+	<meta name="viewport" content="width=device-width; initial-scale=1.0">
+
+<style>
+
+#GameContainer {
+	display: grid;
+	margin-top: 80px;
+	place-items: center;
+}
+#GameMatrix {
+	border: 2px solid black;
+	border-radius: 5px;
+	padding: 3px;
+	display: table;
+	background: #fff;
+}
+#GameMatrix>div {
+	display: table-row;
+}
+#GameMatrix>div>div {
+	display: table-cell;
+	width: 20px;
+	height: 20px;
+	border: 2px solid white;
+}
+
+#GameMatrix>div>div.active-T {
+	background-image: linear-gradient(to bottom right, #fdd, #f33);
+	border-top-color: #fee;
+	border-left-color: #fee;
+	border-bottom-color: #f33;
+	border-right-color: #f33;
+}
+
+#DebugElement {
+	border: 2px solid red;
+	padding: 5px;
+}
+</style>
+</head>
+<body>
+
+<div id='GameContainer'>
+	<div id='GameMatrix' data-matrix-size='20x10'>
+	</div>
+
+	<pre id='DebugElement'>hello, world</pre>
+</div>
+
+
+<script>
+
+const TETRIMINOS = {
+	"I": [ 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0 ],
+	"O": [ 0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0 ],
+	"T": [ 0, 1, 0, 1, 1, 1, 0, 0, 0 ],
+	"S": [ 0, 1, 1, 1, 1, 0, 0, 0, 0 ],
+	"Z": [ 1, 1, 0, 0, 1, 1, 0, 0, 0 ],
+	"J": [ 1, 0, 0, 1, 1, 1, 0, 0, 0 ],
+	"L": [ 0, 0, 1, 1, 1, 1, 0, 0, 0 ]
+};
+
+const L33 = [2, 5, 8, 1, 4, 7, 0, 3, 6]; // conter-clockwise, for tetriminos other than I and O
+const R33 = [6, 3, 0, 7, 4, 1, 8, 5, 2];
+const L44 = [3, 7, 11, 15, 2, 6, 10, 14, 1, 5, 9, 13, 0, 4, 8, 12]; // counter-clockwise, for I and O
+const R44 = [12, 8, 4, 0, 13, 9, 5, 1, 14, 10, 6, 2, 15, 11, 7, 3];
+
+function GameState(rowSize, colSize) {
+	this.currentTetrimino = {
+		r: 4,
+		c: 4,
+		mat: TETRIMINOS['I']
+	};
+	this.score = 0;
+	this.rowSize = rowSize;
+	this.colSize = colSize;
+	this.isPaused = false;
+	this.isToppedOut = false;
+	this.upcomingTetriminos = [];
+
+	this.matrix = [];
+
+	for (let r = 0; r < rowSize; r++) {
+		this.matrix[r] = [];
+		for (let c = 0; c < colSize; c++) {
+			this.matrix[r][c] = 0;
+		}
+	}
+}
+
+GameState.prototype.pauseGame = function() {
+	this.isPaused = true;
+}
+
+GameState.prototype.continueGame = function() {
+	this.isPaused = false;
+}
+
+GameState.prototype._writeCurrentTetriminoToMatrix = function() {
+	let tetriminoMatrixSize = (this.currentTetrimino.mat.length === 16) ? 4 : 3;
+	for (let r = 0; r < tetriminoMatrixSize; r++) {
+		for (let c = 0; c < tetriminoMatrixSize; c++) {
+			// @Todo: let this be a dictionary instead of being a number.
+			let realR = this.currentTetrimino.r + r;
+			let realC = this.currentTetrimino.c + c;
+			this.matrix[realR][realC] = this.currentTetrimino.mat[r * tetriminoMatrixSize + c]; 
+		}
+	}
+}
+
+GameState.prototype._rotateCurrentTetrimino = function(direction) {
+	let r = [];
+	let len = this.currentTetrimino.mat.length;
+
+	// spin:
+	const rotmap = {
+		'l': { '9': L33, '16': L44 },
+		'r': { '9': R33, '16': R44 }
+	}[direction][len.toString()];
+
+	for (let i = 0; i < len; i++) {
+		r[i] = this.currentTetrimino.mat[rotmap[i]];
+	}
+
+	// @Todo: calibration.
+
+	for (let i = 0; i < len; i++) {
+		this.currentTetrimino.mat[i] = r[i];
+	}
+}
+
+GameState.prototype.update = function() {
+	this._rotateCurrentTetrimino('l');
+	this._writeCurrentTetriminoToMatrix();
+}
+
+function Renderer() {
+	this.elemGameMatrix = document.getElementById('GameMatrix');
+	let matrixSize = this.elemGameMatrix.dataset.matrixSize;
+	this.rowSize = matrixSize.split('x')[0];
+	this.colSize = matrixSize.split('x')[1];
+	this.cells = [];
+
+	this.elemGameMatrix.innerHTML = ''; // fine when efficiency is not critical.
+	for (let r = 0; r < this.rowSize; r++) {
+		let rowDiv = document.createElement('div');
+
+		this.cells[r] = [];
+		for (let c = 0; c < this.colSize; c++) {
+			let cellDiv = document.createElement('div');
+			this.cells[r][c] = cellDiv;
+			rowDiv.appendChild(cellDiv);
+		}
+		this.elemGameMatrix.appendChild(rowDiv);
+	}
+}
+
+Renderer.prototype.render = function(gameState) {
+	for (let r = 0; r < this.rowSize; r++) {
+		for (let c = 0; c < this.colSize; c++) {
+			this.cells[r][c].classList.remove('active-T');
+			if (gameState.matrix[r][c] === 1) {
+				this.cells[r][c].classList.add('active-T');
+			}
+		}
+	}
+}
+
+function EventHub() {
+}
+
+function GameEngine() {
+}
+
+let GS = new GameState(20, 10);
+let R = new Renderer(20, 10);
+GS.update();
+R.render(GS);
+
+
+
+
+</script>
+</body>
+</html>

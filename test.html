@@ -1,0 +1,58 @@
+<!doctype html>
+
+<html>
+<head>
+	<meta charset="utf8">
+	<meta name="viewport" content="width=device-width; initial-scale=1.0">
+
+<style>
+</style>
+</head>
+<body>
+
+<div class='main'>
+	<pre id='debug_el'></pre>
+</div>
+
+
+<script>
+
+"use strict";
+
+function debug_print(str) {
+	document.getElementById("debug_el").innerText += (str + "\n");
+}
+
+class Event {
+}
+
+class EventHub {
+}
+
+class GameState {
+	constructor() {
+		this.isStarted = false;
+		this.isPaused = false;
+		this.isGameOver = false;
+
+
+		debug_print("hello, world");
+
+		window.requestAnimationFrame(this.loopfunc);
+	}
+
+	loopfunc(ts) {
+
+
+	}
+};
+
+class GameMachine {
+
+}
+
+new GameState();
+
+</script>
+</body>
+</html>
