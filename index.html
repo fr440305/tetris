@@ -1,4 +1,9 @@
 <!doctype html>
+<!--
+
+Reference: https://harddrop.com/wiki/Tetris_Wiki
+
+-->
 
 <html>
 <head>
@@ -55,18 +60,61 @@
 
 <script>
 
+function newMatrix(rowSize, colSize, initValue) {
+	let ret = [];
+
+	for (let r = 0; r < rowSize; r++) {
+		ret[r] = [];
+		for (let c = 0; c < colSize; c++) {
+			ret[r][c] = initValue;
+		}
+	}
+
+	return ret;
+}
+
 const TETRIMINOS = {
-	"I": [ 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0 ],
-	"O": [ 0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0 ],
-	"T": [ 0, 1, 0, 1, 1, 1, 0, 0, 0 ],
-	"S": [ 0, 1, 1, 1, 1, 0, 0, 0, 0 ],
-	"Z": [ 1, 1, 0, 0, 1, 1, 0, 0, 0 ],
-	"J": [ 1, 0, 0, 1, 1, 1, 0, 0, 0 ],
-	"L": [ 0, 0, 1, 1, 1, 1, 0, 0, 0 ]
+	I: [
+		0, 0, 0, 0,
+		1, 1, 1, 1,
+		0, 0, 0, 0,
+		0, 0, 0, 0
+	],
+	O: [
+		0, 0, 0, 0,
+		0, 1, 1, 0,
+		0, 1, 1, 0,
+		0, 0, 0, 0
+	],
+	T: [
+		0, 1, 0,
+		1, 1, 1,
+		0, 0, 0
+	],
+	S: [
+		0, 1, 1,
+		1, 1, 0,
+		0, 0, 0
+	],
+	Z: [
+		1, 1, 0,
+		0, 1, 1,
+		0, 0, 0
+	],
+	J: [
+		1, 0, 0,
+		1, 1, 1,
+		0, 0, 0
+	],
+	L: [
+		0, 0, 1,
+		1, 1, 1,
+		0, 0, 0
+	]
 };
 
 const L33 = [2, 5, 8, 1, 4, 7, 0, 3, 6]; // conter-clockwise, for tetriminos other than I and O
-const R33 = [6, 3, 0, 7, 4, 1, 8, 5, 2];
+const R33 = [6, 3, 0, 7, 4, 1, 8, 5, 2]; // L33.reverse();
 const L44 = [3, 7, 11, 15, 2, 6, 10, 14, 1, 5, 9, 13, 0, 4, 8, 12]; // counter-clockwise, for I and O
 const R44 = [12, 8, 4, 0, 13, 9, 5, 1, 14, 10, 6, 2, 15, 11, 7, 3];
 
@@ -74,23 +122,14 @@ function GameState(rowSize, colSize) {
 	this.currentTetrimino = {
 		r: 4,
 		c: 4,
-		mat: TETRIMINOS['I']
+		mat: TETRIMINOS['Z']
 	};
-	this.score = 0;
 	this.rowSize = rowSize;
 	this.colSize = colSize;
 	this.isPaused = false;
-	this.isToppedOut = false;
-	this.upcomingTetriminos = [];
+	this.isGameOver = false;
 
-	this.matrix = [];
-
-	for (let r = 0; r < rowSize; r++) {
-		this.matrix[r] = [];
-		for (let c = 0; c < colSize; c++) {
-			this.matrix[r][c] = 0;
-		}
-	}
+	this.historyTetriminos = newMatrix(this.rowSize, this.colSize, 0);
 }
 
 GameState.prototype.setPauseStatus = function(command) {
@@ -104,28 +143,25 @@ GameState.prototype.setPauseStatus = function(command) {
 	}
 }
 
-GameState.prototype._cleanupMatrix = function() {
-	for (let r = 0; r < this.rowSize; r++) {
-		for (let c = 0; c < this.colSize; c++) {
-			this.matrix[r][c] = 0; // @Todo: doctionary rather than number...
-		}
-	}
-}
-
-GameState.prototype._writeCurrentTetriminoToMatrix = function() {
-	let tetriminoMatrixSize = (this.currentTetrimino.mat.length === 16) ? 4 : 3;
-	for (let r = 0; r < tetriminoMatrixSize; r++) {
-		for (let c = 0; c < tetriminoMatrixSize; c++) {
-			// @Todo: let this be a dictionary instead of being a number.
-			let realR = this.currentTetrimino.r + r;
-			let realC = this.currentTetrimino.c + c;
-			this.matrix[realR][realC] = this.currentTetrimino.mat[r * tetriminoMatrixSize + c]; 
-		}
+GameState.prototype._moveCurrentTetrimino = function(direction) {
+	// @Incomplete.
+	switch (direction) {
+		case 'l':
+			this.currentTetrimino.c -= 1;
+			break;
+		case 'r':
+			this.currentTetrimino.c += 1;
+			break;
+		case 'd':
+			this.currentTetrimino.r -= 1;
+			break;
 	}
 }
 
 GameState.prototype._rotateCurrentTetrimino = function(direction) {
-	// This operation may or may not success. If not success, return false.
+	// @Incomplete.
+	// This operation may or may not success.
+	// If not success, return false.
 
 	let r = [];
 	let tetriminoLength = this.currentTetrimino.mat.length;
@@ -140,23 +176,24 @@ GameState.prototype._rotateCurrentTetrimino = function(direction) {
 		r[i] = this.currentTetrimino.mat[rotmap[i]];
 	}
 
-	// @Todo: calibration.
-
-	// 
+	// @Todo: Check if the tetrimino is out of bound or
+	// overlapped with the locked tetriminos.
+	// If so, try calibration (wall-kick, ground-kick, etc).
+	// @Todo: Calibration. If calibration failed, return false
+	// and make no change.
+	
 	for (let i = 0; i < tetriminoLength; i++) {
 		this.currentTetrimino.mat[i] = r[i];
 	}
 }
 
 GameState.prototype.update = function() {
-	if (this.isPaused) {
+	if (this.isPaused || this.isGameOver) {
 		return;
 	}
 
 	// @Cleanup: 
-	this._rotateCurrentTetrimino('l');
-
-	this._writeCurrentTetriminoToMatrix();
+	this._moveCurrentTetrimino('r');
 }
 
 function Renderer(rowSize, colSize) {
@@ -165,6 +202,8 @@ function Renderer(rowSize, colSize) {
 	this.rowSize = rowSize;
 	this.colSize = colSize;
 	this.cells = [];
+
+	this.matrix = newMatrix(this.rowSize, this.colSize, 0);
 
 	this.elemGameMatrix.innerHTML = ''; // fine when efficiency is not critical.
 	for (let r = 0; r < this.rowSize; r++) {
@@ -180,22 +219,90 @@ function Renderer(rowSize, colSize) {
 	}
 }
 
+Renderer.prototype._cleanupMatrix = function(mat, rowSize, colSize) {
+	for (let r = 0; r < rowSize; r++) {
+		for (let c = 0; c < colSize; c++) {
+			mat[r][c] = 0;
+		}
+	}
+}
+
+Renderer.prototype._writeCurrentTetriminoToMatrix = function(currentTetrimino, matrix) {
+	let tetriminoMatrixSize = (currentTetrimino.mat.length === 16) ? 4 : 3;
+	for (let r = 0; r < tetriminoMatrixSize; r++) {
+		for (let c = 0; c < tetriminoMatrixSize; c++) {
+			let realR = currentTetrimino.r + r;
+			let realC = currentTetrimino.c + c;
+
+			// @Todo: let this be a dictionary instead of being a number.
+			matrix[realR][realC] = currentTetrimino.mat[r * tetriminoMatrixSize + c]; 
+		}
+	}
+}
+
 Renderer.prototype.render = function(gameState) {
+	this._cleanupMatrix(this.matrix, this.rowSize, this.colSize);
+	this._writeCurrentTetriminoToMatrix(gameState.currentTetrimino, this.matrix);
+
 	for (let r = 0; r < this.rowSize; r++) {
 		for (let c = 0; c < this.colSize; c++) {
 			this.cells[r][c].classList.remove('active-T');
-			if (gameState.matrix[r][c] === 1) {
+			if (this.matrix[r][c] === 1) {
 				this.cells[r][c].classList.add('active-T');
 			}
 		}
 	}
 }
 
-function EventHub() {
+// Event Specification.
+//
+//     - keypress
+// 
+function EventHub(keyConfig) {
+	this.eventQueue = [];
+
+	this.keyConfig = keyConfig || {
+		moveLeft: 'A',
+		moveRight: 'D',
+		moveDown: 'S',
+		hardDrop: 'W',
+
+		rotateLeft: 'J',
+		rotateRight: 'K'
+	};
+
+	this._listen();
+}
+
+EventHub.prototype._pushEvent = function(eventType, data) {
+	this.eventQueue.unshift({
+		eventType: eventType,
+		timestamp: performance.now(),
+		data     : data
+	});
+}
+
+EventHub.prototype._listen = function() {
+	// @Incomplete
+
+	// @Todo: Key binding according to this.keyConfig.
+}
+
+EventHub.prototype.fetchEvent = function() {
+	if (this.eventQueue.length === 0) {
+		return null;
+	}
+
+	return this.eventQueue.pop();
 }
 
 function GameEngine() {
 }
+
+GameEngine.prototype._handleEvents = function() {
+}
+
+// --debug--
 
 let GS = new GameState(20, 10);
 let R = new Renderer(20, 10);
