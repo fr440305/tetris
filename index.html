@@ -42,6 +42,11 @@ Reference: https://harddrop.com/wiki/Tetris_Wiki
 	border-right-color: #f33;
 }
 
+#GameMatrix>div>div.locked-T {
+	/* background-image: linear-gradient(to bottom right, #fdd, #f33); */
+	background: #f33;
+}
+
 #DebugElement {
 	border: 2px solid red;
 	padding: 5px;
@@ -113,9 +118,9 @@ const TETRIMINOS = {
 	]
 };
 
-const L33 = [2, 5, 8, 1, 4, 7, 0, 3, 6]; // conter-clockwise, for tetriminos other than I and O
-const R33 = [6, 3, 0, 7, 4, 1, 8, 5, 2]; // L33.reverse();
-const L44 = [3, 7, 11, 15, 2, 6, 10, 14, 1, 5, 9, 13, 0, 4, 8, 12]; // counter-clockwise, for I and O
+const L33 = [2, 5, 8, 1, 4, 7, 0, 3, 6]; 
+const R33 = [6, 3, 0, 7, 4, 1, 8, 5, 2]; 
+const L44 = [3, 7, 11, 15, 2, 6, 10, 14, 1, 5, 9, 13, 0, 4, 8, 12]; 
 const R44 = [12, 8, 4, 0, 13, 9, 5, 1, 14, 10, 6, 2, 15, 11, 7, 3];
 
 function GameState(rowSize, colSize, elapsed) {
@@ -130,7 +135,8 @@ function GameState(rowSize, colSize, elapsed) {
 	this.rowSize = rowSize;
 	this.colSize = colSize;
 
-	this.isPaused = false; // From pause to continue: 3, 2, 1, Go!
+	// From pause to continue: 3, 2, 1, Go!
+	this.isPaused = false; 
 	this.isGameOver = false;
 
 	this.tsLastContinue = 0;
@@ -141,6 +147,7 @@ function GameState(rowSize, colSize, elapsed) {
 	this.tsLastSpawn = 0;
 
 	this.historyTetriminos = newMatrix(this.rowSize, this.colSize, 0);
+	this.upcomingTetriminoTypes = [];
 }
 
 GameState.prototype.setPauseStatus = function(command, ts) {
@@ -201,7 +208,14 @@ GameState.prototype._isHittedIntoWall = function(tetrimino, colSize) {
 }
 
 GameState.prototype.moveCurrentTetrimino = function(direction, ts) {
-	// @Incomplete.
+	//
+	// @Incomplete. Shoud make move, spin,
+	// and harddrop private and being
+	// called by operateCurrentTetrimino.
+	// So that we don't have to check
+	// this.isPaused || this.isGameOver || etc
+	// every time. --wshtan, 31 Aug 2020.
+	//
 	if (this.isPaused || this.isGameOver) {
 		return;
 	}
@@ -277,7 +291,7 @@ GameState.prototype.hardDropCurrentTetrimino = function(ts) {
 
 	this.tsLastFallen = ts;
 	this._lockCurrentTetrimino(ts);
-	console.log('!!!!!');
+	console.log('Hard-drop complete.');
 }
 
 //
@@ -314,10 +328,38 @@ GameState.prototype.spinCurrentTetrimino = function(direction) {
 	}
 }
 
-GameState.prototype.operateCurrentTetrimino = function() {
+// GameState.operateCurrentTetrimino either
+// move, spin, or hard-drop the current tetrimino.
+//
+// @par operation String
+//     Either 'move', 'spin', or 'harddrop'.
+//
+// @par direction String
+//     Either 'l', 'r', 'd' when moving,
+//     either 'l', 'r' when spining,
+//     and be '' when harddropping.
+//
+// @ret bool
+//     Return true if success.
+//
+GameState.prototype.operateCurrentTetrimino = function(operation, direction, ts) {
+	// @Incomplete.
+	if (this.isPaused || this.isGameOver) {
+		return;
+	}
+
+	switch (operation) {
+		case 'move':
+		case 'spin':
+		case 'harddrop':
+	}
 }
 
 GameState.prototype._lockCurrentTetrimino = function(ts) {
+	//
+	// Reset this.tsLastLocked and add the current
+	// tetrimino into history tetriminos.
+	//
 	if (this.isPaused || this.isGameOver) {
 		return;
 	}
@@ -325,25 +367,70 @@ GameState.prototype._lockCurrentTetrimino = function(ts) {
 	this.tsLastLocked = ts;
 
 	let tetriminoMatrixSize = (this.currentTetrimino.mat.length === 16) ? 4 : 3;
-	for (let r = 0; r < this.tetriminiMatrixSize; r++) {
-		for (let c = 0; c < this.tetriminoMatrixSize; c++) {
-			if (this.currentTetrimino[r * tetriminoMatrixSize + c] === 1) {
+	console.log('GameState._lockCurr... :: tetMatSz', tetriminoMatrixSize);
+	for (let r = 0; r < tetriminoMatrixSize; r++) {
+		for (let c = 0; c < tetriminoMatrixSize; c++) {
+			if (this.currentTetrimino.mat[r * tetriminoMatrixSize + c] === 1) {
 				let realR = this.currentTetrimino.r + r;
 				let realC = this.currentTetrimino.c + c;
+				console.log(realR, realC);
 				this.historyTetriminos[realR][realC] = 1
 			}
 		}
 	}
 
-	//this.isPause === true;
+	// @Incomplete. Should not spawn immediately.
+	// Should be spawned by this.update. --wshtan, 31 Aug 2020.
+	this._spawnNewTetrimino(ts); 
 }
 
 GameState.prototype._spawnNewTetrimino = function(ts) {
+	console.log('spawning...');
+	if (this.upcomingTetriminoTypes.length === 0) {
+		// Generate another sequence of 7-unrepeated tetriminos.
+		let seq = ['I', 'O', 'T', 'S', 'Z', 'J', 'L'];
+		let tmp = '';
+
+		// Knuth-Shuffle:
+		for (let i = 0; i < seq.length; i++) {
+			for (let j = i+1; j < seq.length; j++) {
+				if (Math.random() < 0.5) {
+					tmp = seq[i];
+					seq[i] = seq[j];
+					seq[j] = tmp;
+				}
+			}
+		}
+
+		// Append:
+		for (let i = 0; i < seq.length; i++) {
+			this.upcomingTetriminoTypes.push(seq[i]);
+		}
+	}
+
+	//
+	// Reset this.currentTetrimino.
+	//
+	let newTetriminoType = this.upcomingTetriminoTypes.pop();
+
+	this.currentTetrimino.r = -1;
+	this.currentTetrimino.c = Math.floor(this.colSize / 2) - 1
+
+	this.currentTetrimino.type = newTetriminoType;
+
+	this.currentTetrimino.mat = [];
+	for (let i = 0; i < TETRIMINOS[newTetriminoType].length; i++) {
+		this.currentTetrimino.mat[i] = TETRIMINOS[newTetriminoType][i];
+	}
+
+	this.tsLastSpawn = ts;
+	console.log('spawn complete.');
 }
 
 // GameState.update updates the info of the game state.
 //
-// @par ts Number: Timestamp given by window.requestAnimationFrame.
+// @par ts Number
+//     Timestamp given by window.requestAnimationFrame.
 //
 GameState.prototype.update = function(ts) {
 	if (this.isPaused || this.isGameOver) {
@@ -395,8 +482,13 @@ Renderer.prototype._writeCurrentTetriminoToMatrix = function(currentTetrimino, m
 			let realC = currentTetrimino.c + c;
 
 			// @Todo: let this be a dictionary instead of being a number.
-			if (realR >= 0 && realR < this.rowSize && realC >= 0 && realC < this.colSize) {
-				matrix[realR][realC] = currentTetrimino.mat[r * tetriminoMatrixSize + c]; 
+			if (
+				realR >= 0 && realR < this.rowSize &&
+				realC >= 0 && realC < this.colSize
+			) {
+				matrix[realR][realC] = currentTetrimino.mat[
+					r * tetriminoMatrixSize + c
+				]; 
 			}
 		}
 	}
@@ -404,11 +496,23 @@ Renderer.prototype._writeCurrentTetriminoToMatrix = function(currentTetrimino, m
 
 // Render.render renders the game state onto the screen.
 //
-// @par gameState GameState : The GameState.
-// @par ts Number           : Timestamp given by window.requestAnimationFrame.
+// @par gameState Object::GameState
+//     The GameState.
+//
+// @par ts Number
+//     Timestamp given by window.requestAnimationFrame.
 //
 Renderer.prototype.render = function(gameState, ts) {
 	this._cleanupMatrix(this.matrix, this.rowSize, this.colSize);
+
+	for (let r = 0; r < this.rowSize; r++) {
+		for (let c = 0; c < this.colSize; c++) {
+			if (gameState.historyTetriminos[r][c] === 1) {
+				this.matrix[r][c] = -1;
+			}
+		}
+	}
+
 	this._writeCurrentTetriminoToMatrix(gameState.currentTetrimino, this.matrix);
 
 	for (let r = 0; r < this.rowSize; r++) {
@@ -416,6 +520,8 @@ Renderer.prototype.render = function(gameState, ts) {
 			this.cells[r][c].classList.remove('active-T');
 			if (this.matrix[r][c] === 1) {
 				this.cells[r][c].classList.add('active-T');
+			} else if (this.matrix[r][c] === -1) {
+				this.cells[r][c].classList.add('locked-T');
 			}
 		}
 	}
@@ -542,9 +648,6 @@ let GE = new GameEngine(GameState, Renderer, EventHub, {
 	elapsed: 1000, // [ms]
 	keyConfig: false // Default configuration.
 });
-
-
-
 
 </script>
 </body>
