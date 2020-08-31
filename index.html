@@ -35,17 +35,81 @@ Reference: https://harddrop.com/wiki/Tetris_Wiki
 	border: 2px solid white;
 }
 
-#GameMatrix>div>div.active-T {
-	background-image: linear-gradient(to bottom right, #fdd, #f33);
-	border-top-color: #fee;
-	border-left-color: #fee;
-	border-bottom-color: #f33;
-	border-right-color: #f33;
+#GameMatrix>div>div.active-I {
+	background-image: linear-gradient(to bottom right, white, cyan);
+	border-top-color: white;
+	border-left-color: white;
+	border-bottom-color: cyan;
+	border-right-color: cyan;
+} #GameMatrix>div>div.locked-I {
+	background: cyan;
+	border-color: cyan;
 }
 
-#GameMatrix>div>div.locked-T {
-	/* background-image: linear-gradient(to bottom right, #fdd, #f33); */
-	background: #f33;
+#GameMatrix>div>div.active-O {
+	background-image: linear-gradient(to bottom right, white, yellow);
+	border-top-color: white;
+	border-left-color: white;
+	border-bottom-color: yellow;
+	border-right-color: yellow;
+} #GameMatrix>div>div.locked-O {
+	background: yellow;
+	border-color: yellow;
+}
+
+#GameMatrix>div>div.active-T {
+	background-image: linear-gradient(to bottom right, white, purple);
+	border-top-color: white;
+	border-left-color: white;
+	border-bottom-color: purple;
+	border-right-color: purple;
+} #GameMatrix>div>div.locked-T {
+	background: purple;
+	border-color: purple;
+}
+
+#GameMatrix>div>div.active-S {
+	background-image: linear-gradient(to bottom right, white, green);
+	border-top-color: white;
+	border-left-color: white;
+	border-bottom-color: green;
+	border-right-color: green;
+} #GameMatrix>div>div.locked-S {
+	background: green;
+	border-color: green;
+}
+
+#GameMatrix>div>div.active-Z {
+	background-image: linear-gradient(to bottom right, white, red);
+	border-top-color: white;
+	border-left-color: white;
+	border-bottom-color: red;
+	border-right-color: red;
+} #GameMatrix>div>div.locked-Z {
+	background: red;
+	border-color: red;
+}
+
+#GameMatrix>div>div.active-J {
+	background-image: linear-gradient(to bottom right, white, blue);
+	border-top-color: white;
+	border-left-color: white;
+	border-bottom-color: blue;
+	border-right-color: blue;
+} #GameMatrix>div>div.locked-J {
+	background: blue;
+	border-color: blue;
+}
+
+#GameMatrix>div>div.active-L {
+	background-image: linear-gradient(to bottom right, white, orange);
+	border-top-color: white;
+	border-left-color: white;
+	border-bottom-color: orange;
+	border-right-color: orange;
+} #GameMatrix>div>div.locked-L {
+	background: orange;
+	border-color: orange;
 }
 
 #DebugElement {
@@ -531,9 +595,19 @@ Renderer.prototype.render = function(gameState, ts) {
 
 	for (let r = 0; r < this.rowSize; r++) {
 		for (let c = 0; c < this.colSize; c++) {
-			this.cells[r][c].classList.remove('active-T');
+			this.cells[r][c].classList.remove(
+				'active-I', 'active-O', 'active-T',
+				'active-S', 'active-Z', 'active-J',
+				'active-L',
+
+				'locked-I', 'locked-O', 'locked-T',
+				'locked-S', 'locked-Z', 'locked-J',
+				'locked-L'
+			);
 			if (this.matrix[r][c] === 1) {
-				this.cells[r][c].classList.add('active-T');
+				this.cells[r][c].classList.add(
+					'active-' + gameState.currentTetrimino.type
+				);
 			} else if (this.matrix[r][c] === -1) {
 				this.cells[r][c].classList.add('locked-T');
 			}
