@@ -7,8 +7,9 @@ Reference: https://harddrop.com/wiki/Tetris_Wiki
 
 <html>
 <head>
-	<meta charset="utf8">
-	<meta name="viewport" content="width=device-width; initial-scale=1.0">
+
+<meta charset="utf8">
+<meta name="viewport" content="width=device-width; initial-scale=1.0">
 
 <style>
 
@@ -53,6 +54,7 @@ Reference: https://harddrop.com/wiki/Tetris_Wiki
 }
 </style>
 </head>
+
 <body>
 
 <div id='GameContainer'>
@@ -144,7 +146,7 @@ function GameState(rowSize, colSize, elapsed) {
 	this.tsLastSoftDrop = 0;
 	this.tsLastFallen = 0;
 	this.tsLastLocked = 0;
-	this.tsLastSpawn = 0;
+	this.tsLastSpawned = 0;
 
 	this.historyTetriminos = newMatrix(this.rowSize, this.colSize, 0);
 	this.upcomingTetriminoTypes = [];
@@ -209,7 +211,7 @@ GameState.prototype._isHittedIntoWall = function(tetrimino, colSize) {
 
 GameState.prototype.moveCurrentTetrimino = function(direction, ts) {
 	//
-	// @Incomplete. Shoud make move, spin,
+	// @Todo. Shoud make move, spin,
 	// and harddrop private and being
 	// called by operateCurrentTetrimino.
 	// So that we don't have to check
@@ -290,7 +292,6 @@ GameState.prototype.hardDropCurrentTetrimino = function(ts) {
 	}
 
 	this.tsLastFallen = ts;
-	this._lockCurrentTetrimino(ts);
 	console.log('Hard-drop complete.');
 }
 
@@ -299,7 +300,7 @@ GameState.prototype.spinCurrentTetrimino = function(direction) {
 	if (this.isPaused || this.isGameOver) {
 		return;
 	}
-	// @Incomplete.
+	// @Todo.
 	// This operation may or may not success.
 	// If not success, return false.
 
@@ -343,7 +344,7 @@ GameState.prototype.spinCurrentTetrimino = function(direction) {
 //     Return true if success.
 //
 GameState.prototype.operateCurrentTetrimino = function(operation, direction, ts) {
-	// @Incomplete.
+	// @Todo.
 	if (this.isPaused || this.isGameOver) {
 		return;
 	}
@@ -379,9 +380,6 @@ GameState.prototype._lockCurrentTetrimino = function(ts) {
 		}
 	}
 
-	// @Incomplete. Should not spawn immediately.
-	// Should be spawned by this.update. --wshtan, 31 Aug 2020.
-	this._spawnNewTetrimino(ts); 
 }
 
 GameState.prototype._spawnNewTetrimino = function(ts) {
@@ -423,7 +421,7 @@ GameState.prototype._spawnNewTetrimino = function(ts) {
 		this.currentTetrimino.mat[i] = TETRIMINOS[newTetriminoType][i];
 	}
 
-	this.tsLastSpawn = ts;
+	this.tsLastSpawned = ts;
 	console.log('spawn complete.');
 }
 
@@ -435,6 +433,22 @@ GameState.prototype._spawnNewTetrimino = function(ts) {
 GameState.prototype.update = function(ts) {
 	if (this.isPaused || this.isGameOver) {
 		return;
+	}
+
+	if (
+		this.tsLastFallen > this.tsLastLocked &&
+		this.tsLastFallen > this.tsLastSpawned
+	) {
+		// Just fallen.
+		this._lockCurrentTetrimino(ts);
+		return;
+	}
+
+	if (
+		this.tsLastLocked > this.tsLastFallen &&
+		this.tsLastLocked > this.tsLastSpawned
+	) {
+		this._spawnNewTetrimino(ts);
 	}
 
 	if (ts - this.tsLastSoftDrop > this.elapsed) {
@@ -560,7 +574,7 @@ EventHub.prototype._pushEvent = function(eventType, data) {
 }
 
 EventHub.prototype._listen = function() {
-	// @Incomplete
+	// @Todo
 	let _this = this;
 
 	document.body.addEventListener('keydown', function(e) {
