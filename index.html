@@ -118,19 +118,27 @@ const R33 = [6, 3, 0, 7, 4, 1, 8, 5, 2]; // L33.reverse();
 const L44 = [3, 7, 11, 15, 2, 6, 10, 14, 1, 5, 9, 13, 0, 4, 8, 12]; // counter-clockwise, for I and O
 const R44 = [12, 8, 4, 0, 13, 9, 5, 1, 14, 10, 6, 2, 15, 11, 7, 3];
 
-function GameState(rowSize, colSize) {
+function GameState(rowSize, colSize, elapsed) {
+	this.elapsed = elapsed;
+
 	this.currentTetrimino = {
 		r: 4,
 		c: 4,
+		type: 'Z',
 		mat: TETRIMINOS['Z']
 	};
 	this.rowSize = rowSize;
 	this.colSize = colSize;
 
 	this.isPaused = false; // From pause to continue: 3, 2, 1, Go!
-	this.lastPauseTime = 0;
-	this.lastContinueTime = 0;
-	this.lastGameOverTime = 0;
+	this.isGameOver = false;
+
+	this.tsLastContinue = 0;
+	this.tsLastGameOver = 0;
+	this.tsLastSoftDrop = 0;
+	this.tsLastFallen = 0;
+	this.tsLastLocked = 0;
+	this.tsLastSpawn = 0;
 
 	this.historyTetriminos = newMatrix(this.rowSize, this.colSize, 0);
 }
@@ -139,44 +147,149 @@ GameState.prototype.setPauseStatus = function(command, ts) {
 	switch (command) {
 		case 'pause':
 			this.isPaused = true;
-			this.lastPauseTime = ts;
 			break;
 		case 'cont':
 			this.isPaused = false;
-			this.lastContinueTime = ts;
+			this.tsLastContinue = ts;
 			break;
 		case 'toggle':
 			if (this.isPaused) {
-				this.lastContinueTime = ts;
-			} else {
-				this.lastPauseTime = ts;
+				this.tsLastContinue = ts;
 			}
 			this.isPaused = !this.isPaused;
 			break;
 	}
 }
 
-GameState.prototype.moveCurrentTetrimino = function(direction) {
+GameState.prototype._isOverlappedWithFloor = function(tetrimino, history, rowSize, colSize) {
+	let tetriminoMatrixSize = (tetrimino.mat.length === 16) ? 4 : 3;
+	for (let r = 0; r < tetriminoMatrixSize; r++) {
+		for (let c = 0; c < tetriminoMatrixSize; c++) {
+			if (tetrimino.mat[r * tetriminoMatrixSize + c] === 1) {
+				let realR = tetrimino.r + r;
+				let realC = tetrimino.c + c;
+
+				if (
+					realR === rowSize ||
+					history[realR][realC] === 1
+				) {
+					return true;
+				}
+			}
+		}
+	}
+
+	return false;
+}
+
+GameState.prototype._isHittedIntoWall = function(tetrimino, colSize) {
+	let tetriminoMatrixSize = (tetrimino.mat.length === 16) ? 4 : 3;
+	for (let r = 0; r < tetriminoMatrixSize; r++) {
+		for (let c = 0; c < tetriminoMatrixSize; c++) {
+			if (tetrimino.mat[r * tetriminoMatrixSize + c] === 1) {
+				let realR = tetrimino.r + r;
+				let realC = tetrimino.c + c;
+				
+				if (realC < 0 || realC >= colSize) {
+					return true;
+				}
+			}
+		}
+	}
+
+	return false;
+}
+
+GameState.prototype.moveCurrentTetrimino = function(direction, ts) {
 	// @Incomplete.
-	switch (direction) {
-		case 'l':
-			this.currentTetrimino.c -= 1;
-			break;
-		case 'r':
-			this.currentTetrimino.c += 1;
-			break;
-		case 'd':
-			this.currentTetrimino.r += 1;
-			break;
+	if (this.isPaused || this.isGameOver) {
+		return;
+	}
+
+	let nextR = this.currentTetrimino.r;
+	let nextC = this.currentTetrimino.c;
+
+	if (direction === 'l') {
+		nextC -= 1;
+		if (this._isHittedIntoWall({
+			r: nextR,
+			c: nextC,
+			type: this.currentTetrimino.type,
+			mat: this.currentTetrimino.mat
+		}, this.colSize)) {
+			console.log('??????');
+			return false;
+		} else {
+			this.currentTetrimino.c = nextC;
+		}
+	} else if (direction === 'r') {
+		nextC += 1;
+		if (this._isHittedIntoWall({
+			r: nextR,
+			c: nextC,
+			type: this.currentTetrimino.type,
+			mat: this.currentTetrimino.mat
+		}, this.colSize)) {
+			console.log('??????');
+			return false;
+		} else {
+			this.currentTetrimino.c = nextC;
+		}
+	} else if (direction === 'd') {
+		nextR += 1;
+		if (this._isOverlappedWithFloor(
+			{
+				r: nextR,
+				c: nextC,
+				type: this.currentTetrimino.type,
+				mat: this.currentTetrimino.mat
+			},
+			this.historyTetriminos,
+			this.rowSize,
+			this.colSize
+		)) {
+			this.tsLastFallen = ts;
+			return false;
+		} else {
+			// ok
+			this.currentTetrimino.r = nextR;
+		}
 	}
 }
 
+GameState.prototype.hardDropCurrentTetrimino = function(ts) {
+	if (this.isPaused || this.isGameOver) {
+		return;
+	}
+	for (let r = this.currentTetrimino.r; r < this.rowSize; r++) {
+		if (
+			this._isOverlappedWithFloor({
+				r: r,
+				c: this.currentTetrimino.c,
+				type: this.currentTetrimino.type,
+				mat: this.currentTetrimino.mat
+			}, this.historyTetriminos, this.rowSize, this.colSize)
+		) {
+			this.currentTetrimino.r = r-1;
+			break;
+		}
+	}
+
+	this.tsLastFallen = ts;
+	this._lockCurrentTetrimino(ts);
+	console.log('!!!!!');
+}
+
+//
 GameState.prototype.spinCurrentTetrimino = function(direction) {
+	if (this.isPaused || this.isGameOver) {
+		return;
+	}
 	// @Incomplete.
 	// This operation may or may not success.
 	// If not success, return false.
 
-	let r = [];
+	let tmp = [];
 	let tetriminoLength = this.currentTetrimino.mat.length;
 
 	// Rotate:
@@ -186,19 +299,46 @@ GameState.prototype.spinCurrentTetrimino = function(direction) {
 	}[direction][tetriminoLength.toString()];
 
 	for (let i = 0; i < tetriminoLength; i++) {
-		r[i] = this.currentTetrimino.mat[rotmap[i]];
+		tmp[i] = this.currentTetrimino.mat[rotmap[i]];
 	}
 
-	// @Todo: Check if the tetrimino is out of bound or
+	// @Todo: Check if the tetrimino {r, c, tmp[i]} is out of bound or
 	// overlapped with the locked tetriminos.
-	// If so, try calibration (wall-kick, ground-kick, etc).
+	// If so, try calibration (wall-kick, floor-kick, etc).
 	// @Todo: Calibration. If calibration failed, return false
 	// and make no change.
 	
 	// Replace:
 	for (let i = 0; i < tetriminoLength; i++) {
-		this.currentTetrimino.mat[i] = r[i];
+		this.currentTetrimino.mat[i] = tmp[i];
 	}
+}
+
+GameState.prototype.operateCurrentTetrimino = function() {
+}
+
+GameState.prototype._lockCurrentTetrimino = function(ts) {
+	if (this.isPaused || this.isGameOver) {
+		return;
+	}
+	console.log('Locked at ', ts);
+	this.tsLastLocked = ts;
+
+	let tetriminoMatrixSize = (this.currentTetrimino.mat.length === 16) ? 4 : 3;
+	for (let r = 0; r < this.tetriminiMatrixSize; r++) {
+		for (let c = 0; c < this.tetriminoMatrixSize; c++) {
+			if (this.currentTetrimino[r * tetriminoMatrixSize + c] === 1) {
+				let realR = this.currentTetrimino.r + r;
+				let realC = this.currentTetrimino.c + c;
+				this.historyTetriminos[realR][realC] = 1
+			}
+		}
+	}
+
+	//this.isPause === true;
+}
+
+GameState.prototype._spawnNewTetrimino = function(ts) {
 }
 
 // GameState.update updates the info of the game state.
@@ -210,8 +350,10 @@ GameState.prototype.update = function(ts) {
 		return;
 	}
 
-	// @Cleanup: 
-	this.moveCurrentTetrimino('d');
+	if (ts - this.tsLastSoftDrop > this.elapsed) {
+		this.tsLastSoftDrop = ts;
+		this.moveCurrentTetrimino('d', ts);
+	}
 }
 
 function Renderer(rowSize, colSize) {
@@ -253,7 +395,9 @@ Renderer.prototype._writeCurrentTetriminoToMatrix = function(currentTetrimino, m
 			let realC = currentTetrimino.c + c;
 
 			// @Todo: let this be a dictionary instead of being a number.
-			matrix[realR][realC] = currentTetrimino.mat[r * tetriminoMatrixSize + c]; 
+			if (realR >= 0 && realR < this.rowSize && realC >= 0 && realC < this.colSize) {
+				matrix[realR][realC] = currentTetrimino.mat[r * tetriminoMatrixSize + c]; 
+			}
 		}
 	}
 }
@@ -316,7 +460,9 @@ EventHub.prototype._listen = function() {
 	document.body.addEventListener('keydown', function(e) {
 		e = e || window.event;
 		e = e.keyCode || e.which;
+
 		let key = String.fromCharCode(e);
+
 		if (key === _this.keyConfig.pauseToggleKey) {
 			_this._pushEvent('setPauseStatus', 'toggle');
 		} else if (key === _this.keyConfig.hardDropKey) {
@@ -325,9 +471,6 @@ EventHub.prototype._listen = function() {
 			_this._pushEvent('moveTetrimino', _this.keyConfig.moveKeys[key]);
 		} else if (_this.keyConfig.spinKeys[key] !== undefined) {
 			_this._pushEvent('spinTetrimino', _this.keyConfig.spinKeys[key]);
-		} else {
-			// @Fatal. Should not happen!
-			console.log('Should not happen!');
 		}
 	});
 }
@@ -341,13 +484,13 @@ EventHub.prototype.fetchEvent = function() {
 }
 
 function GameEngine(gameStateConstructor, rendererConstructor, eventHubConstructor, config) {
-	this.gameState = new gameStateConstructor(config.rowSize, config.colSize);
+	this.gameState = new gameStateConstructor(config.rowSize, config.colSize, config.elapsed);
 	this.renderer = new rendererConstructor(config.rowSize, config.colSize);
 	this.eventHub = new eventHubConstructor(config.keyConfig);
 
 	this.config = config;
 
-	this.tsOffset = 0; // Set just before requestAnimationFrame starts.
+	this.tsOffset = 0; // (performance.now() - ts).Set just before requestAnimationFrame starts.
 	this.tsLastUpdate = 0;
 
 	this._run();
@@ -361,9 +504,12 @@ GameEngine.prototype._handleEvents = function(ts) {
 			return;
 		}
 
+		console.log(gameEvent);
 		switch (gameEvent.eventType) {
+			case 'hardDropTetrimino':
+				this.gameState.hardDropCurrentTetrimino(ts);
 			case 'moveTetrimino':
-				this.gameState.moveCurrentTetrimino(gameEvent.data);
+				this.gameState.moveCurrentTetrimino(gameEvent.data, ts);
 				break;
 			case 'spinTetrimino':
 				this.gameState.spinCurrentTetrimino(gameEvent.data);
@@ -376,12 +522,7 @@ GameEngine.prototype._handleEvents = function(ts) {
 
 GameEngine.prototype._loop = function(ts) {
 	this._handleEvents(ts);
-
-	if (ts - this.tsLastUpdate > this.config.elapsed) {
-		this.tsLastUpdate = ts;
-		this.gameState.update(ts);
-	}
-
+	this.gameState.update(ts);
 	this.renderer.render(this.gameState, ts);
 }
 
