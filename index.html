@@ -196,23 +196,31 @@ function GameState(rowSize, colSize, elapsed) {
 		r: 4,
 		c: 4,
 		type: 'Z',
-		mat: TETRIMINOS['Z']
+
+		mat: TETRIMINOS['Z'] 
 	};
+
+	//
+	// The size of the playfield.
+	//
 	this.rowSize = rowSize;
 	this.colSize = colSize;
 
-	// From pause to continue: 3, 2, 1, Go!
 	this.isPaused = false; 
 	this.isGameOver = false;
 
+	//
+	// Timestamps.
+	//
 	this.tsLastContinue = 0;
 	this.tsLastGameOver = 0;
+
 	this.tsLastSoftDrop = 0;
 	this.tsLastFallen = 0;
 	this.tsLastLocked = 0;
 	this.tsLastSpawned = 0;
 
-	this.historyTetriminos = newMatrix(this.rowSize, this.colSize, 0);
+	this.matrixLockedTetriminos = newMatrix(this.rowSize, this.colSize, ' ');
 	this.upcomingTetriminoTypes = [];
 }
 
@@ -234,38 +242,26 @@ GameState.prototype.setPauseStatus = function(command, ts) {
 	}
 }
 
-GameState.prototype._isOverlappedWithFloor = function(tetrimino, history, rowSize, colSize) {
+GameState.prototype._isOverlapped = function(
+	tetrimino,
+	lockedTetriminos,
+	rowSize, colSize
+) {
+	// Maybe more than just returning a bool? Not sure.
+	//
 	let tetriminoMatrixSize = (tetrimino.mat.length === 16) ? 4 : 3;
-	for (let r = 0; r < tetriminoMatrixSize; r++) {
-		for (let c = 0; c < tetriminoMatrixSize; c++) {
-			if (tetrimino.mat[r * tetriminoMatrixSize + c] === 1) {
-				let realR = tetrimino.r + r;
-				let realC = tetrimino.c + c;
 
-				if (
-					realR === rowSize ||
-					history[realR][realC] === 1
-				) {
-					return true;
-				}
-			}
-		}
-	}
+	for (let i = 0; i < tetrimino.mat.length; i++) {
+		if (tetrimino.mat[i] === 1) {
+			let realR = tetrimino.r + Math.floor(i / tetriminoMatrixSize);
+			let realC = tetrimino.c + (i % tetriminoMatrixSize);
 
-	return false;
-}
-
-GameState.prototype._isHittedIntoWall = function(tetrimino, colSize) {
-	let tetriminoMatrixSize = (tetrimino.mat.length === 16) ? 4 : 3;
-	for (let r = 0; r < tetriminoMatrixSize; r++) {
-		for (let c = 0; c < tetriminoMatrixSize; c++) {
-			if (tetrimino.mat[r * tetriminoMatrixSize + c] === 1) {
-				let realR = tetrimino.r + r;
-				let realC = tetrimino.c + c;
-				
-				if (realC < 0 || realC >= colSize) {
-					return true;
-				}
+			if (
+				realC < 0 || realC >= colSize ||
+				realR >= rowSize ||
+				(realR >= 0 && lockedTetriminos[realR][realC] !== ' ')
+			) {
+				return true;
 			}
 		}
 	}
@@ -291,50 +287,36 @@ GameState.prototype.moveCurrentTetrimino = function(direction, ts) {
 
 	if (direction === 'l') {
 		nextC -= 1;
-		if (this._isHittedIntoWall({
-			r: nextR,
-			c: nextC,
-			type: this.currentTetrimino.type,
-			mat: this.currentTetrimino.mat
-		}, this.colSize)) {
-			console.log('??????');
-			return false;
-		} else {
-			this.currentTetrimino.c = nextC;
-		}
 	} else if (direction === 'r') {
 		nextC += 1;
-		if (this._isHittedIntoWall({
-			r: nextR,
-			c: nextC,
-			type: this.currentTetrimino.type,
-			mat: this.currentTetrimino.mat
-		}, this.colSize)) {
-			console.log('??????');
-			return false;
-		} else {
-			this.currentTetrimino.c = nextC;
-		}
 	} else if (direction === 'd') {
 		nextR += 1;
-		if (this._isOverlappedWithFloor(
-			{
-				r: nextR,
-				c: nextC,
-				type: this.currentTetrimino.type,
-				mat: this.currentTetrimino.mat
-			},
-			this.historyTetriminos,
-			this.rowSize,
-			this.colSize
-		)) {
-			this.tsLastFallen = ts;
-			return false;
-		} else {
-			// ok
-			this.currentTetrimino.r = nextR;
-		}
 	}
+
+	let nextTetrimino = {
+		r: nextR,
+		c: nextC,
+		type: this.currentTetrimino.type,
+		mat: this.currentTetrimino.mat
+	};
+	if (this._isOverlapped(
+		nextTetrimino,
+		this.matrixLockedTetriminos,
+		this.rowSize,
+		this.colSize
+	)) {
+		// Overlapped. Operation failed.
+		if (direction === 'd') {
+			this.tsLastFallen = ts;
+		}
+
+		return false;
+	}
+
+	this.currentTetrimino.r = nextR;
+	this.currentTetrimino.c = nextC;
+
+	return true;
 }
 
 GameState.prototype.hardDropCurrentTetrimino = function(ts) {
@@ -343,12 +325,12 @@ GameState.prototype.hardDropCurrentTetrimino = function(ts) {
 	}
 	for (let r = this.currentTetrimino.r; r < this.rowSize; r++) {
 		if (
-			this._isOverlappedWithFloor({
+			this._isOverlapped({
 				r: r,
 				c: this.currentTetrimino.c,
 				type: this.currentTetrimino.type,
 				mat: this.currentTetrimino.mat
-			}, this.historyTetriminos, this.rowSize, this.colSize)
+			}, this.matrixLockedTetriminos, this.rowSize, this.colSize)
 		) {
 			this.currentTetrimino.r = r-1;
 			break;
@@ -356,7 +338,6 @@ GameState.prototype.hardDropCurrentTetrimino = function(ts) {
 	}
 
 	this.tsLastFallen = ts;
-	console.log('Hard-drop complete.');
 }
 
 //
@@ -381,16 +362,32 @@ GameState.prototype.spinCurrentTetrimino = function(direction) {
 		tmp[i] = this.currentTetrimino.mat[rotmap[i]];
 	}
 
-	// @Todo: Check if the tetrimino {r, c, tmp[i]} is out of bound or
-	// overlapped with the locked tetriminos.
-	// If so, try calibration (wall-kick, floor-kick, etc).
-	// @Todo: Calibration. If calibration failed, return false
-	// and make no change.
-	
-	// Replace:
+	let nextTetrimino = {
+		r: this.currentTetrimino.r,
+		c: this.currentTetrimino.c,
+		type: this.currentTetrimino.type,
+		mat: tmp
+	};
+	if (this._isOverlapped(
+		nextTetrimino,
+		this.matrixLockedTetriminos,
+		this.rowSize,
+		this.colSize
+	)) {
+		// Overlapped. Operation failed.
+
+		// @Todo: Try calibration if out of bound.
+		// If calibration failed, return false
+		// and make no change.
+
+		return false;
+	}
+
 	for (let i = 0; i < tetriminoLength; i++) {
 		this.currentTetrimino.mat[i] = tmp[i];
 	}
+
+	return true;
 }
 
 // GameState.operateCurrentTetrimino either
@@ -413,51 +410,51 @@ GameState.prototype.operateCurrentTetrimino = function(operation, direction, ts)
 		return;
 	}
 
+	let success;
 	switch (operation) {
 		case 'move':
+			success = this._moveCurrentTetrimino(direction, ts);
+			// ...
+			return;
 		case 'spin':
+			this._spinCurrentTetrimino(direction);
 		case 'harddrop':
+			this._hardDropCurrentTetrimino(ts);
 	}
 }
 
 GameState.prototype._lockCurrentTetrimino = function(ts) {
 	//
 	// Reset this.tsLastLocked and add the current
-	// tetrimino into history tetriminos.
+	// tetrimino into this.matrixLockedTetriminos.
 	//
-	if (this.isPaused || this.isGameOver) {
-		return;
-	}
-	console.log('Locked at ', ts);
 	this.tsLastLocked = ts;
 
 	let tetriminoMatrixSize = (this.currentTetrimino.mat.length === 16) ? 4 : 3;
-	console.log('GameState._lockCurr... :: tetMatSz', tetriminoMatrixSize);
 	for (let r = 0; r < tetriminoMatrixSize; r++) {
 		for (let c = 0; c < tetriminoMatrixSize; c++) {
 			if (this.currentTetrimino.mat[r * tetriminoMatrixSize + c] === 1) {
 				let realR = this.currentTetrimino.r + r;
 				let realC = this.currentTetrimino.c + c;
-				console.log(realR, realC);
-				this.historyTetriminos[realR][realC] = 1
+				this.matrixLockedTetriminos[realR][realC] = this.currentTetrimino.type;
 			}
 		}
 	}
-
 }
 
 GameState.prototype._spawnNewTetrimino = function(ts) {
-	console.log('spawning...');
+	this.tsLastSpawned = ts;
+
 	if (this.upcomingTetriminoTypes.length === 0) {
 		// Generate another sequence of 7-unrepeated tetriminos.
-		let seq = ['I', 'O', 'T', 'S', 'Z', 'J', 'L'];
-		let tmp = '';
 
-		// Knuth-Shuffle:
+		let seq = ['I', 'O', 'T', 'S', 'Z', 'J', 'L'];
+
+		// Shuffle:
 		for (let i = 0; i < seq.length; i++) {
 			for (let j = i+1; j < seq.length; j++) {
 				if (Math.random() < 0.5) {
-					tmp = seq[i];
+					let tmp = seq[i];
 					seq[i] = seq[j];
 					seq[j] = tmp;
 				}
@@ -465,28 +462,22 @@ GameState.prototype._spawnNewTetrimino = function(ts) {
 		}
 
 		// Append:
-		for (let i = 0; i < seq.length; i++) {
-			this.upcomingTetriminoTypes.push(seq[i]);
+		while (seq.length !== 0) {
+			this.upcomingTetriminoTypes.push(seq.pop());
 		}
 	}
 
-	//
 	// Reset this.currentTetrimino.
-	//
 	let newTetriminoType = this.upcomingTetriminoTypes.pop();
 
 	this.currentTetrimino.r = -1;
-	this.currentTetrimino.c = Math.floor(this.colSize / 2) - 1
-
+	this.currentTetrimino.c = Math.floor(this.colSize / 2) - 1;
 	this.currentTetrimino.type = newTetriminoType;
 
 	this.currentTetrimino.mat = [];
 	for (let i = 0; i < TETRIMINOS[newTetriminoType].length; i++) {
 		this.currentTetrimino.mat[i] = TETRIMINOS[newTetriminoType][i];
 	}
-
-	this.tsLastSpawned = ts;
-	console.log('spawn complete.');
 }
 
 // GameState.update updates the info of the game state.
@@ -512,6 +503,7 @@ GameState.prototype.update = function(ts) {
 		this.tsLastLocked > this.tsLastFallen &&
 		this.tsLastLocked > this.tsLastSpawned
 	) {
+		// Just locked.
 		this._spawnNewTetrimino(ts);
 	}
 
@@ -547,7 +539,7 @@ function Renderer(rowSize, colSize) {
 Renderer.prototype._cleanupMatrix = function(mat, rowSize, colSize) {
 	for (let r = 0; r < rowSize; r++) {
 		for (let c = 0; c < colSize; c++) {
-			mat[r][c] = 0;
+			mat[r][c] = ' ';
 		}
 	}
 }
@@ -564,9 +556,14 @@ Renderer.prototype._writeCurrentTetriminoToMatrix = function(currentTetrimino, m
 				realR >= 0 && realR < this.rowSize &&
 				realC >= 0 && realC < this.colSize
 			) {
-				matrix[realR][realC] = currentTetrimino.mat[
-					r * tetriminoMatrixSize + c
-				]; 
+				switch (currentTetrimino.mat[r * tetriminoMatrixSize + c]) {
+					case 0:
+						matrix[realR][realC] = ' ';
+						break;
+					case 1:
+						matrix[realR][realC] = 'A';
+						break;
+				}
 			}
 		}
 	}
@@ -583,15 +580,15 @@ Renderer.prototype._writeCurrentTetriminoToMatrix = function(currentTetrimino, m
 Renderer.prototype.render = function(gameState, ts) {
 	this._cleanupMatrix(this.matrix, this.rowSize, this.colSize);
 
+	this._writeCurrentTetriminoToMatrix(gameState.currentTetrimino, this.matrix);
+
 	for (let r = 0; r < this.rowSize; r++) {
 		for (let c = 0; c < this.colSize; c++) {
-			if (gameState.historyTetriminos[r][c] === 1) {
-				this.matrix[r][c] = -1;
+			if (gameState.matrixLockedTetriminos[r][c] !== ' ') {
+				this.matrix[r][c] = gameState.matrixLockedTetriminos[r][c];
 			}
 		}
 	}
-
-	this._writeCurrentTetriminoToMatrix(gameState.currentTetrimino, this.matrix);
 
 	for (let r = 0; r < this.rowSize; r++) {
 		for (let c = 0; c < this.colSize; c++) {
@@ -604,12 +601,16 @@ Renderer.prototype.render = function(gameState, ts) {
 				'locked-S', 'locked-Z', 'locked-J',
 				'locked-L'
 			);
-			if (this.matrix[r][c] === 1) {
+
+			let cellContent = this.matrix[r][c];
+			if (cellContent === ' ') {
+				// Pass.
+			} else if (cellContent  === 'A') {
 				this.cells[r][c].classList.add(
 					'active-' + gameState.currentTetrimino.type
 				);
-			} else if (this.matrix[r][c] === -1) {
-				this.cells[r][c].classList.add('locked-T');
+			} else {
+				this.cells[r][c].classList.add('locked-' + cellContent);
 			}
 		}
 	}
@@ -698,7 +699,6 @@ GameEngine.prototype._handleEvents = function(ts) {
 			return;
 		}
 
-		console.log(gameEvent);
 		switch (gameEvent.eventType) {
 			case 'hardDropTetrimino':
 				this.gameState.hardDropCurrentTetrimino(ts);
