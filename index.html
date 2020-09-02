@@ -131,11 +131,6 @@ Reference: https://harddrop.com/wiki/Tetris_Wiki
 
 <script>
 
-// @Bug. If press the hard drop key and not release it,
-// the game will bahave as if it is paused, and will not
-// spawn new tetrimino. --wshtan, 1 Sep 2020.
-//
-
 function newMatrix(rowSize, colSize, initValue) {
 	let ret = [];
 
@@ -202,7 +197,7 @@ function GameState(rowSize, colSize, elapsed) {
 		c: 4,
 		type: 'Z',
 
-		mat: TETRIMINOS['Z'] 
+		mat: TETRIMINOS['Z']
 	};
 
 	//
@@ -213,6 +208,7 @@ function GameState(rowSize, colSize, elapsed) {
 
 	this.isPaused = false; 
 	this.isGameOver = false;
+	this.isHardDroppable = false;
 
 	//
 	// Timestamps.
@@ -252,8 +248,6 @@ GameState.prototype._isOverlapped = function(
 	lockedTetriminos,
 	rowSize, colSize
 ) {
-	// Maybe more than just returning a bool? Not sure.
-	//
 	let tetriminoMatrixSize = (tetrimino.mat.length === 16) ? 4 : 3;
 
 	for (let i = 0; i < tetrimino.mat.length; i++) {
@@ -274,19 +268,7 @@ GameState.prototype._isOverlapped = function(
 	return false;
 }
 
-GameState.prototype.moveCurrentTetrimino = function(direction, ts) {
-	//
-	// @Todo. Shoud make move, spin,
-	// and harddrop private and being
-	// called by operateCurrentTetrimino.
-	// So that we don't have to check
-	// this.isPaused || this.isGameOver || etc
-	// every time. --wshtan, 31 Aug 2020.
-	//
-	if (this.isPaused || this.isGameOver) {
-		return;
-	}
-
+GameState.prototype._moveCurrentTetrimino = function(direction, ts) {
 	let nextR = this.currentTetrimino.r;
 	let nextC = this.currentTetrimino.c;
 
@@ -324,10 +306,14 @@ GameState.prototype.moveCurrentTetrimino = function(direction, ts) {
 	return true;
 }
 
-GameState.prototype.hardDropCurrentTetrimino = function(ts) {
-	if (this.isPaused || this.isGameOver) {
-		return;
+GameState.prototype._hardDropCurrentTetrimino = function(ts) {
+	if (this.hardDroppable === false) {
+		return false;
 	}
+	
+	// Lock the hard drop functionality until the re-spawn is complete.
+	this.hardDroppable = false; 
+
 	for (let r = this.currentTetrimino.r; r < this.rowSize; r++) {
 		if (
 			this._isOverlapped({
@@ -344,14 +330,11 @@ GameState.prototype.hardDropCurrentTetrimino = function(ts) {
 
 	this.tsLastFallen = ts;
 	this.tsLastLocked = ts;
+
+	return true;
 }
 
-//
-GameState.prototype.spinCurrentTetrimino = function(direction) {
-	if (this.isPaused || this.isGameOver) {
-		return;
-	}
-
+GameState.prototype._spinCurrentTetrimino = function(direction) {
 	let tmp = [];
 	let tetriminoLength = this.currentTetrimino.mat.length;
 
@@ -365,6 +348,7 @@ GameState.prototype.spinCurrentTetrimino = function(direction) {
 		tmp[i] = this.currentTetrimino.mat[rotmap[i]];
 	}
 
+	// Validation:
 	let nextTetrimino = {
 		r: this.currentTetrimino.r,
 		c: this.currentTetrimino.c,
@@ -405,24 +389,21 @@ GameState.prototype.spinCurrentTetrimino = function(direction) {
 //     and be '' when harddropping.
 //
 // @ret bool
-//     Return true if success.
+//     Return true if success. (@Todo @Incomplete. What do we mean by "success"?)
 //
 GameState.prototype.operateCurrentTetrimino = function(operation, direction, ts) {
-	// @Todo.
 	if (this.isPaused || this.isGameOver) {
-		return;
+		return false;
 	}
 
-	let success;
 	switch (operation) {
 		case 'move':
-			success = this._moveCurrentTetrimino(direction, ts);
-			// ...
-			return;
+			return this._moveCurrentTetrimino(direction, ts);
 		case 'spin':
-			this._spinCurrentTetrimino(direction);
+			return this._spinCurrentTetrimino(direction);
 		case 'harddrop':
 			this._hardDropCurrentTetrimino(ts);
+			return true; // A hard drop will always success.
 	}
 }
 
@@ -508,11 +489,14 @@ GameState.prototype.update = function(ts) {
 	) {
 		// Just locked.
 		this._spawnNewTetrimino(ts);
+
+		// Unlock the hard drop functionality after the new tetrimino is ready.
+		this.hardDroppable = true; 
 	}
 
 	if (ts - this.tsLastSoftDrop > this.elapsed) {
 		this.tsLastSoftDrop = ts;
-		this.moveCurrentTetrimino('d', ts);
+		this._moveCurrentTetrimino('d', ts);
 	}
 }
 
@@ -703,15 +687,16 @@ GameEngine.prototype._handleEvents = function(ts) {
 
 		switch (gameEvent.eventType) {
 			case 'hardDropTetrimino':
-				this.gameState.hardDropCurrentTetrimino(ts);
+				this.gameState.operateCurrentTetrimino('harddrop', '', ts);
 			case 'moveTetrimino':
-				this.gameState.moveCurrentTetrimino(gameEvent.data, ts);
+				this.gameState.operateCurrentTetrimino('move', gameEvent.data, ts);
 				break;
 			case 'spinTetrimino':
-				this.gameState.spinCurrentTetrimino(gameEvent.data);
+				this.gameState.operateCurrentTetrimino('spin', gameEvent.data, ts);
 				break;
 			case 'setPauseStatus':
-				this.gameState.setPauseStatus(gameEvent.data, ts + this.tsOffset);
+				//this.gameState.setPauseStatus(gameEvent.data, ts + this.tsOffset);
+				this.gameState.setPauseStatus(gameEvent.data, ts);
 		}
 	}
 }
