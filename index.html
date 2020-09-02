@@ -131,6 +131,11 @@ Reference: https://harddrop.com/wiki/Tetris_Wiki
 
 <script>
 
+// @Bug. If press the hard drop key and not release it,
+// the game will bahave as if it is paused, and will not
+// spawn new tetrimino. --wshtan, 1 Sep 2020.
+//
+
 function newMatrix(rowSize, colSize, initValue) {
 	let ret = [];
 
@@ -338,6 +343,7 @@ GameState.prototype.hardDropCurrentTetrimino = function(ts) {
 	}
 
 	this.tsLastFallen = ts;
+	this.tsLastLocked = ts;
 }
 
 //
@@ -345,9 +351,6 @@ GameState.prototype.spinCurrentTetrimino = function(direction) {
 	if (this.isPaused || this.isGameOver) {
 		return;
 	}
-	// @Todo.
-	// This operation may or may not success.
-	// If not success, return false.
 
 	let tmp = [];
 	let tetriminoLength = this.currentTetrimino.mat.length;
@@ -551,7 +554,6 @@ Renderer.prototype._writeCurrentTetriminoToMatrix = function(currentTetrimino, m
 			let realR = currentTetrimino.r + r;
 			let realC = currentTetrimino.c + c;
 
-			// @Todo: let this be a dictionary instead of being a number.
 			if (
 				realR >= 0 && realR < this.rowSize &&
 				realC >= 0 && realC < this.colSize
