@@ -194,9 +194,9 @@ const TETRIMINOS = {
 	]
 };
 
-const L33 = [2, 5, 8, 1, 4, 7, 0, 3, 6]; 
-const R33 = [6, 3, 0, 7, 4, 1, 8, 5, 2]; 
-const L44 = [3, 7, 11, 15, 2, 6, 10, 14, 1, 5, 9, 13, 0, 4, 8, 12]; 
+const L33 = [2, 5, 8, 1, 4, 7, 0, 3, 6];
+const R33 = [6, 3, 0, 7, 4, 1, 8, 5, 2];
+const L44 = [3, 7, 11, 15, 2, 6, 10, 14, 1, 5, 9, 13, 0, 4, 8, 12];
 const R44 = [12, 8, 4, 0, 13, 9, 5, 1, 14, 10, 6, 2, 15, 11, 7, 3];
 
 function GameState(rowSize, colSize, elapsed) {
@@ -216,7 +216,7 @@ function GameState(rowSize, colSize, elapsed) {
 	this.rowSize = rowSize;
 	this.colSize = colSize;
 
-	this.isPaused = false; 
+	this.isPaused = false;
 	this.isGameOver = false;
 	this.isHardDroppable = false;
 
@@ -320,9 +320,9 @@ GameState.prototype._hardDropCurrentTetrimino = function(ts) {
 	if (this.hardDroppable === false) {
 		return false;
 	}
-	
+
 	// Lock the hard drop functionality until the re-spawn is complete.
-	this.hardDroppable = false; 
+	this.hardDroppable = false;
 
 	for (let r = this.currentTetrimino.r; r < this.rowSize; r++) {
 		if (
@@ -501,7 +501,7 @@ GameState.prototype.update = function(ts) {
 		this._spawnNewTetrimino(ts);
 
 		// Unlock the hard drop functionality after the new tetrimino is ready.
-		this.hardDroppable = true; 
+		this.hardDroppable = true;
 	}
 
 	if (ts - this.tsLastSoftDrop > this.elapsed) {
@@ -615,7 +615,7 @@ Renderer.prototype.render = function(gameState, ts) {
 // Event Specification.
 //
 //     - keypress
-// 
+//
 function EventHub(keyConfig) {
 	this.eventQueue = [];
 
@@ -672,8 +672,8 @@ EventHub.prototype._listen = function() {
 			_this.touchStartX = e.touches[0].clientX;
 			_this.touchStartY = e.touches[0].clientY;
 
-			_this.touchCurrentX = _this.touchStartX; 
-			_this.touchCurrentY = _this.touchStartY; 
+			_this.touchCurrentX = _this.touchStartX;
+			_this.touchCurrentY = _this.touchStartY;
 
 			logprint('touchstart ' + _this.touchStartX + ' ' + _this.touchStartY);
 		}
