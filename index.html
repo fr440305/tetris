@@ -15,7 +15,7 @@ Reference: https://harddrop.com/wiki/Tetris_Wiki
 
 #GameContainer {
 	display: grid;
-	margin-top: 80px;
+	margin-top: 0;
 	place-items: center;
 }
 #GameMatrix {
@@ -30,9 +30,9 @@ Reference: https://harddrop.com/wiki/Tetris_Wiki
 }
 #GameMatrix>div>div {
 	display: table-cell;
-	width: 20px;
-	height: 20px;
-	border: 2px solid white;
+	width: 10px;
+	height: 10px;
+	border: 1px solid white;
 }
 
 #GameMatrix>div>div.active-I {
@@ -112,6 +112,18 @@ Reference: https://harddrop.com/wiki/Tetris_Wiki
 	border-color: orange;
 }
 
+#LoggingElement {
+	display: block;
+	width: 300px;
+	height: 250px;
+	background: #ddd;
+	overflow-x: scroll;
+	overflow-y: scroll;
+
+	border: 1px solid red;
+
+}
+
 </style>
 </head>
 
@@ -119,10 +131,15 @@ Reference: https://harddrop.com/wiki/Tetris_Wiki
 
 <div id='GameContainer'>
 	<div id='GameMatrix' data-matrix-size='20x10'> </div>
+	<pre id='LoggingElement'></pre>
 </div>
 
 
 <script>
+
+function logprint(msg) {
+	document.getElementById('LoggingElement').innerText += (msg + '\n');
+}
 
 function newMatrix(rowSize, colSize, initValue) {
 	let ret = [];
@@ -602,6 +619,8 @@ Renderer.prototype.render = function(gameState, ts) {
 function EventHub(keyConfig) {
 	this.eventQueue = [];
 
+	this.elemGameMatrix = document.getElementById('GameMatrix');
+
 	this.keyConfig = keyConfig || {
 		moveKeys: {
 			'A': 'l',
@@ -615,6 +634,13 @@ function EventHub(keyConfig) {
 		hardDropKey: 'W',
 		pauseToggleKey: ' '
 	};
+
+	//this.touchStartPos = {x: -1, y: -1};
+	//this.touchCurrentPos = {x: -1, y: -1};
+	this.touchStartX = -1;
+	this.touchStartY = -1;
+	this.touchCurrentX = -1;
+	this.touchCurrentY = -1;
 
 	this._listen();
 }
@@ -631,7 +657,61 @@ EventHub.prototype._listen = function() {
 	// @Todo
 	let _this = this;
 
+	// @Todo @Bug: Sometimes the blur event won't be triggered at Safari. --wshtan, 2 Sep 2020.
+	//
+	window.addEventListener('blur', function() {
+		logprint('EventHub._listen::window(blur) :: Window lost focus. Try pause the game.');
+		_this._pushEvent('setPauseStatus', 'pause');
+	});
+
+	this.elemGameMatrix.addEventListener('touchstart', function(e) {
+		e.preventDefault();
+
+		logprint('touchstart :: e.touches.[type length] == ' + typeof e.touches.length + ' ' + e.touches.length + ' ' + (e.touches.length === 1));
+		if (e.touches.length === 1) {
+			_this.touchStartX = e.touches[0].clientX;
+			_this.touchStartY = e.touches[0].clientY;
+
+			_this.touchCurrentX = _this.touchStartX; 
+			_this.touchCurrentY = _this.touchStartY; 
+
+			logprint('touchstart ' + _this.touchStartX + ' ' + _this.touchStartY);
+		}
+	});
+
+	this.elemGameMatrix.addEventListener('touchmove', function(e) {
+		e.preventDefault();
+
+		if (e.touches.length >= 1) {
+			_this.touchCurrentX = e.touches[0].clientX;
+			_this.touchCurrentY = e.touches[0].clientY;
+
+			logprint('touchmove ' + _this.touchCurrentX + ' ' + _this.touchCurrentY);
+		}
+	});
+
+	this.elemGameMatrix.addEventListener('touchend', function(e) {
+		e.preventDefault();
+
+		if (e.touches.length === 0) {
+			logprint('touchend :: currentPosition == ' + _this.touchCurrentX + ' ' + _this.touchCurrentY);
+
+			let dx = Math.abs(_this.touchCurrentX - _this.touchStartX);
+			let dy = Math.abs(_this.touchCurrentY - _this.touchStartY);
+			if (dx <= 15 && dy <= 15) {
+				logprint('touch-click the playfield.');
+				_this._pushEvent('spinTetrimino', 'l');
+			}
+
+			_this.touchStartX = -1;
+			_this.touchStartY = -1;
+			_this.touchCurrentX = -1;
+			_this.touchCurrentY = -1;
+		}
+	});
+
 	document.body.addEventListener('keydown', function(e) {
+
 		e = e || window.event;
 		e = e.keyCode || e.which;
 
@@ -708,6 +788,7 @@ GameEngine.prototype._run = function() {
 		_this._loop(ts);
 		window.requestAnimationFrame(loopWarpper);
 	})();
+	logprint("GameEngine._run() :: Run.");
 }
 
 let GE = new GameEngine(GameState, Renderer, EventHub, {
@@ -717,6 +798,4 @@ let GE = new GameEngine(GameState, Renderer, EventHub, {
 	keyConfig: false // Default configuration.
 });
 
-</script>
-</body>
-</html>
+</script> </body> </html>
