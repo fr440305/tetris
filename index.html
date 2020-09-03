@@ -35,6 +35,8 @@ Reference: https://harddrop.com/wiki/Tetris_Wiki
 	border: 1px solid white;
 }
 
+/* Color Settings. */
+
 #GameMatrix>div>div.active-I {
 	background-image: linear-gradient(to bottom right, white, cyan);
 	border-top-color: white;
@@ -321,7 +323,7 @@ GameState.prototype._hardDropCurrentTetrimino = function(ts) {
 		return false;
 	}
 
-	// Lock the hard drop functionality until the re-spawn is complete.
+	// Disable the hard drop functionality until the re-spawn is complete.
 	this.hardDroppable = false;
 
 	for (let r = this.currentTetrimino.r; r < this.rowSize; r++) {
@@ -358,7 +360,7 @@ GameState.prototype._spinCurrentTetrimino = function(direction) {
 		tmp[i] = this.currentTetrimino.mat[rotmap[i]];
 	}
 
-	// Validation:
+	// Overlapping Check:
 	let nextTetrimino = {
 		r: this.currentTetrimino.r,
 		c: this.currentTetrimino.c,
@@ -398,22 +400,20 @@ GameState.prototype._spinCurrentTetrimino = function(direction) {
 //     either 'l', 'r' when spining,
 //     and be '' when harddropping.
 //
-// @ret bool
-//     Return true if success. (@Todo @Incomplete. What do we mean by "success"?)
+// @ret void
 //
 GameState.prototype.operateCurrentTetrimino = function(operation, direction, ts) {
 	if (this.isPaused || this.isGameOver) {
-		return false;
+		return;
 	}
 
 	switch (operation) {
 		case 'move':
-			return this._moveCurrentTetrimino(direction, ts);
-		case 'spin':
-			return this._spinCurrentTetrimino(direction);
+			this._moveCurrentTetrimino(direction, ts);
 		case 'harddrop':
 			this._hardDropCurrentTetrimino(ts);
-			return true; // A hard drop will always success.
+		case 'spin':
+			this._spinCurrentTetrimino(direction);
 	}
 }
 
@@ -500,7 +500,7 @@ GameState.prototype.update = function(ts) {
 		// Just locked.
 		this._spawnNewTetrimino(ts);
 
-		// Unlock the hard drop functionality after the new tetrimino is ready.
+		// Re-enable the hard drop functionality after the new tetrimino is ready.
 		this.hardDroppable = true;
 	}
 
@@ -657,25 +657,22 @@ EventHub.prototype._listen = function() {
 	// @Todo
 	let _this = this;
 
-	// @Todo @Bug: Sometimes the blur event won't be triggered at Safari. --wshtan, 2 Sep 2020.
+	// @Todo @Bug: Sometimes the blur event
+	// won't be triggered at Safari. --wshtan, 2 Sep 2020.
 	//
 	window.addEventListener('blur', function() {
-		logprint('EventHub._listen::window(blur) :: Window lost focus. Try pause the game.');
 		_this._pushEvent('setPauseStatus', 'pause');
 	});
 
 	this.elemGameMatrix.addEventListener('touchstart', function(e) {
 		e.preventDefault();
 
-		logprint('touchstart :: e.touches.[type length] == ' + typeof e.touches.length + ' ' + e.touches.length + ' ' + (e.touches.length === 1));
 		if (e.touches.length === 1) {
 			_this.touchStartX = e.touches[0].clientX;
 			_this.touchStartY = e.touches[0].clientY;
 
 			_this.touchCurrentX = _this.touchStartX;
 			_this.touchCurrentY = _this.touchStartY;
-
-			logprint('touchstart ' + _this.touchStartX + ' ' + _this.touchStartY);
 		}
 	});
 
@@ -685,8 +682,6 @@ EventHub.prototype._listen = function() {
 		if (e.touches.length >= 1) {
 			_this.touchCurrentX = e.touches[0].clientX;
 			_this.touchCurrentY = e.touches[0].clientY;
-
-			logprint('touchmove ' + _this.touchCurrentX + ' ' + _this.touchCurrentY);
 		}
 	});
 
@@ -694,12 +689,9 @@ EventHub.prototype._listen = function() {
 		e.preventDefault();
 
 		if (e.touches.length === 0) {
-			logprint('touchend :: currentPosition == ' + _this.touchCurrentX + ' ' + _this.touchCurrentY);
-
 			let dx = Math.abs(_this.touchCurrentX - _this.touchStartX);
 			let dy = Math.abs(_this.touchCurrentY - _this.touchStartY);
 			if (dx <= 15 && dy <= 15) {
-				logprint('touch-click the playfield.');
 				_this._pushEvent('spinTetrimino', 'l');
 			}
 
@@ -737,15 +729,19 @@ EventHub.prototype.fetchEvent = function() {
 	return this.eventQueue.pop();
 }
 
-function GameEngine(gameStateConstructor, rendererConstructor, eventHubConstructor, config) {
-	this.gameState = new gameStateConstructor(config.rowSize, config.colSize, config.elapsed);
+function GameEngine(
+	gameStateConstructor,
+	rendererConstructor,
+	eventHubConstructor,
+	config
+) {
+	this.gameState = new gameStateConstructor(
+		config.rowSize,
+		config.colSize,
+		config.elapsed
+	);
 	this.renderer = new rendererConstructor(config.rowSize, config.colSize);
 	this.eventHub = new eventHubConstructor(config.keyConfig);
-
-	this.config = config;
-
-	this.tsOffset = 0; // (performance.now() - ts).Set just before requestAnimationFrame starts.
-	this.tsLastUpdate = 0;
 
 	this._run();
 }
@@ -768,7 +764,6 @@ GameEngine.prototype._handleEvents = function(ts) {
 				this.gameState.operateCurrentTetrimino('spin', gameEvent.data, ts);
 				break;
 			case 'setPauseStatus':
-				//this.gameState.setPauseStatus(gameEvent.data, ts + this.tsOffset);
 				this.gameState.setPauseStatus(gameEvent.data, ts);
 		}
 	}
@@ -781,8 +776,6 @@ GameEngine.prototype._loop = function(ts) {
 }
 
 GameEngine.prototype._run = function() {
-	this.animationTimestampOffset = performance.now();
-
 	let _this = this;
 	(function loopWarpper(ts) {
 		_this._loop(ts);
