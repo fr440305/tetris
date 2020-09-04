@@ -546,23 +546,21 @@ Renderer.prototype._cleanupMatrix = function(mat, rowSize, colSize) {
 
 Renderer.prototype._writeCurrentTetriminoToMatrix = function(currentTetrimino, matrix) {
 	let tetriminoMatrixSize = (currentTetrimino.mat.length === 16) ? 4 : 3;
-	for (let r = 0; r < tetriminoMatrixSize; r++) {
-		for (let c = 0; c < tetriminoMatrixSize; c++) {
-			let realR = currentTetrimino.r + r;
-			let realC = currentTetrimino.c + c;
+	for (let i = 0; i < tetrimino.mat.length; i++) {
+		let realR = currentTetrimino.r + Math.floor(i / tetriminoMatrixSize);
+		let realC = currentTetrimino.c + (i % tetriminoMatrixSize);
 
-			if (
-				realR >= 0 && realR < this.rowSize &&
-				realC >= 0 && realC < this.colSize
-			) {
-				switch (currentTetrimino.mat[r * tetriminoMatrixSize + c]) {
-					case 0:
-						matrix[realR][realC] = ' ';
-						break;
-					case 1:
-						matrix[realR][realC] = 'A';
-						break;
-				}
+		if (
+			realR >= 0 && realR < this.rowSize &&
+			realC >= 0 && realC < this.colSize
+		) {
+			switch (currentTetrimino.mat[r * tetriminoMatrixSize + c]) {
+				case 0:
+					matrix[realR][realC] = ' ';
+					break;
+				case 1:
+					matrix[realR][realC] = 'A';
+					break;
 			}
 		}
 	}
