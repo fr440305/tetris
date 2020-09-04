@@ -30,8 +30,8 @@ Reference: https://harddrop.com/wiki/Tetris_Wiki
 }
 #GameMatrix>div>div {
 	display: table-cell;
-	width: 10px;
-	height: 10px;
+	width: 20px;
+	height: 20px;
 	border: 1px solid white;
 }
 
@@ -133,7 +133,7 @@ Reference: https://harddrop.com/wiki/Tetris_Wiki
 
 <div id='GameContainer'>
 	<div id='GameMatrix' data-matrix-size='20x10'> </div>
-	<pre id='LoggingElement'></pre>
+	<!--<pre id='LoggingElement'></pre>-->
 </div>
 
 
@@ -638,10 +638,14 @@ function EventHub(keyConfig) {
 		pauseToggleKey: ' '
 	};
 
-	//this.touchStartPos = {x: -1, y: -1};
-	//this.touchCurrentPos = {x: -1, y: -1};
+	/*
+	this.tsLastTouchStart = 0;
+	*/
+
 	this.touchStartX = -1;
 	this.touchStartY = -1;
+	this.touchMovedX = -1;
+	this.touchMovedY = -1;
 	this.touchCurrentX = -1;
 	this.touchCurrentY = -1;
 
@@ -671,8 +675,15 @@ EventHub.prototype._listen = function() {
 		e.preventDefault();
 
 		if (e.touches.length === 1) {
+			/*
+			_this.tsLastTouchStart = performance.now();
+			*/
+
 			_this.touchStartX = e.touches[0].clientX;
 			_this.touchStartY = e.touches[0].clientY;
+
+			_this.touchMovedX = _this.touchStartX;
+			_this.touchMovedY = _this.touchStartY;
 
 			_this.touchCurrentX = _this.touchStartX;
 			_this.touchCurrentY = _this.touchStartY;
@@ -685,6 +696,34 @@ EventHub.prototype._listen = function() {
 		if (e.touches.length >= 1) {
 			_this.touchCurrentX = e.touches[0].clientX;
 			_this.touchCurrentY = e.touches[0].clientY;
+
+			let dx = _this.touchCurrentX - _this.touchMovedX;
+			let dy = _this.touchCurrentY - _this.touchMovedY;
+			if (dx * dx + dy * dy > 400) {
+				let direction;
+				if (dy > dx) {
+					if (dy > -dx) {
+						direction = 'd';
+					} else {
+						direction = 'l';
+					}
+				} else {
+					if (dy > -dx) {
+						direction = 'r';
+					} else {
+						direction = 'u';
+					}
+				}
+
+				if (direction !== 'u') {
+					_this._pushEvent('moveTetrimino', direction);
+				} else {
+					_this._pushEvent('hardDropTetrimino', '');
+				}
+
+				_this.touchMovedX = _this.touchCurrentX;
+				_this.touchMovedY = _this.touchCurrentY;
+			}
 		}
 	});
 
@@ -692,9 +731,15 @@ EventHub.prototype._listen = function() {
 		e.preventDefault();
 
 		if (e.touches.length === 0) {
-			let dx = Math.abs(_this.touchCurrentX - _this.touchStartX);
-			let dy = Math.abs(_this.touchCurrentY - _this.touchStartY);
-			if (dx <= 15 && dy <= 15) {
+			let dx = _this.touchCurrentX - _this.touchStartX;
+			let dy = _this.touchCurrentY - _this.touchStartY;
+			if (dx * dx + dy * dy <= 400) { 
+				// Clicked.
+				//
+				// 400 == CellWidth * CellWidth.
+				// @Todo. Put 400 into configuration.
+				// --wshtan, 3 Sep 2020.
+				// 
 				_this._pushEvent('spinTetrimino', 'l');
 			}
 
@@ -784,7 +829,6 @@ GameEngine.prototype._run = function() {
 		_this._loop(ts);
 		window.requestAnimationFrame(loopWarpper);
 	})();
-	logprint("GameEngine._run() :: Run.");
 }
 
 let GE = new GameEngine(GameState, Renderer, EventHub, {
