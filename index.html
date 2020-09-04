@@ -410,10 +410,13 @@ GameState.prototype.operateCurrentTetrimino = function(operation, direction, ts)
 	switch (operation) {
 		case 'move':
 			this._moveCurrentTetrimino(direction, ts);
+			break;
 		case 'harddrop':
 			this._hardDropCurrentTetrimino(ts);
+			break;
 		case 'spin':
 			this._spinCurrentTetrimino(direction);
+			break;
 	}
 }
 
