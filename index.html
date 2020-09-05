@@ -16,7 +16,7 @@ Reference: https://harddrop.com/wiki/Tetris_Wiki
 #GameContainer {
 	display: grid;
 	margin-top: 0;
-	place-items: left;
+	place-items: center;
 }
 #GameMatrix {
 	border: 2px solid black;
@@ -412,7 +412,7 @@ GameState.prototype._spinCurrentTetrimino = function(direction) {
 // @ret void
 //
 GameState.prototype.operateCurrentTetrimino = function(operation, direction, ts) {
-	if (this.isPaused || this.stateId !== STATE_SPAWN) {
+	if (this.isPaused || this.stateId !== STATE_SPAWNED) {
 		return;
 	}
 
