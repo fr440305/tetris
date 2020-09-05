@@ -415,7 +415,7 @@ GameState.prototype._spinCurrentTetrimino = function(direction) {
 // @ret void
 //
 GameState.prototype.operateCurrentTetrimino = function(operation, direction, ts) {
-	if (this.isPaused || this.isGameOver) {
+	if (this.isPaused || this.stateId === STATE_GAME_OVER) {
 		return;
 	}
 
@@ -447,15 +447,11 @@ GameState.prototype._lockCurrentTetrimino = function(ts) {
 			let realR = this.currentTetrimino.r + Math.floor(i / tetriminoMatrixSize);
 			let realC = this.currentTetrimino.c + (i % tetriminoMatrixSize);
 			if (realR < 0) {
-				// It means that the current tetrimino is top-out.
-				// So the game is over.
-				return false;
+				return;
 			}
 			this.matrixLockedTetriminos[realR][realC] = this.currentTetrimino.type;
 		}
 	}
-
-	return true;
 }
 
 GameState.prototype._spawnNewTetrimino = function(ts) {
@@ -499,6 +495,13 @@ GameState.prototype._spawnNewTetrimino = function(ts) {
 }
 
 GameState.prototype._isGameOver = function() {
+	for (let i = 0; i < this.colSize; i++) {
+		if (this.matrixLockedTetriminos[0][i] !== ' ') {
+			return true;
+		}
+	}
+
+	return false;
 }
 
 GameState.prototype._getFullRows = function() {
@@ -522,40 +525,46 @@ GameState.prototype.update = function(ts) {
 		return;
 	}
 
-	// Check current state
 	if (this.stateId === STATE_SPAWNED) {
 
 		if (ts - this.tsLastSoftDrop > this.elapsed) {
 			this.tsLastSoftDrop = ts;
 			if (!this._moveCurrentTetrimino('d', ts)) {
-				if (!this._lockCurrentTetrimino()) {
-					this.stateId = STATE_GAME_OVER;
-					this.tsLastStateUpdate = ts;
-					logprint("GameOver");
-				}
+				this._lockCurrentTetrimino(ts);
 			}
 		}
 
 	} else if (this.stateId === STATE_LOCKED) {
 
-		logprint("Locked.");
-		let fullRows = this._getFullRows();
-		if (fullRows.length === 0) {
-			this.stateId = STATE_LOCKED_NO_ELIMINATION;
+		logprint('Locked. ' + ts + ' ' + this._isGameOver());
+		logprint('topstr == [' + this.matrixLockedTetriminos[0].join() + ']');
+		// Check if the game is over,
+		// and if there are any full rows.
+		if (this._isGameOver()) {
+			logprint('Game Over. ' + ts);
+			this.stateId = STATE_GAME_OVER
 		} else {
-			this.stateId = STATE_WAITING_FOR_ELIMINATION;
+			let fullRows = this._getFullRows();
+			if (fullRows.length === 0) {
+				this.stateId = STATE_LOCKED_NO_ELIMINATION;
+			} else {
+				// @Todo. Add score.
+				this.stateId = STATE_WAITING_FOR_ELIMINATION;
+			}
 		}
 		this.tsLastStateUpdate = ts;
 
 	} else if (this.stateId === STATE_LOCKED_NO_ELIMINATION) {
 
-		if (ts - this.tsLastStateUpdate >= 2000) {
+		if (ts - this.tsLastStateUpdate >= 500) {
+			logprint('Spawned. ' + ts);
 			this._spawnNewTetrimino(ts);
 		}
 
 	} else if (this.stateId === STATE_WAITING_FOR_ELIMINATION) {
 
-		if (ts - this.tsLastStateUpdate >= 5000) {
+		if (ts - this.tsLastStateUpdate >= 500) {
+			logprint('Spawned. ' + ts);
 			this._spawnNewTetrimino(ts);
 		}
 
