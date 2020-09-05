@@ -16,7 +16,7 @@ Reference: https://harddrop.com/wiki/Tetris_Wiki
 #GameContainer {
 	display: grid;
 	margin-top: 0;
-	place-items: center;
+	place-items: left;
 }
 #GameMatrix {
 	border: 2px solid black;
@@ -335,9 +335,6 @@ GameState.prototype._moveCurrentTetrimino = function(direction, ts) {
 
 GameState.prototype._hardDropCurrentTetrimino = function(ts) {
 	logprint("Hard drop.");
-	if (this.stateId !== STATE_SPAWNED) {
-		return false;
-	}
 
 	for (let r = this.currentTetrimino.r; r < this.rowSize; r++) {
 		if (
@@ -415,7 +412,7 @@ GameState.prototype._spinCurrentTetrimino = function(direction) {
 // @ret void
 //
 GameState.prototype.operateCurrentTetrimino = function(operation, direction, ts) {
-	if (this.isPaused || this.stateId === STATE_GAME_OVER) {
+	if (this.isPaused || this.stateId !== STATE_SPAWN) {
 		return;
 	}
 
@@ -779,9 +776,14 @@ EventHub.prototype._listen = function() {
 
 				if (direction !== 'u') {
 					_this._pushEvent('moveTetrimino', direction);
-				} else {
+				} /* else {
 					_this._pushEvent('hardDropTetrimino', '');
-				}
+				} */
+				//
+				// Don't do harddrop at mobile device.
+				// It's too dangerous for player.
+				// --wshtan, 4 Sep 2020.
+				//
 
 				_this.touchMovedX = _this.touchCurrentX;
 				_this.touchMovedY = _this.touchCurrentY;
