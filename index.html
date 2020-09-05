@@ -208,8 +208,7 @@ const STATE_SPAWNED = 1;
 const STATE_LOCKED = 2;
 const STATE_LOCKED_NO_ELIMINATION = 3;
 const STATE_WAITING_FOR_ELIMINATION = 4;
-//const STATE_ELIMINATED = 5;
-const STATE_GAME_OVER = 6;
+const STATE_GAME_OVER = 5;
 
 function GameState(rowSize, colSize, elapsed) {
 	this.elapsed = elapsed;
@@ -234,26 +233,15 @@ function GameState(rowSize, colSize, elapsed) {
 	this.isPaused = false;
 	this.tsLastContinue = -1;
 
-	//this.isHardDroppable = false;
-
 	this.score = 0;
 
 	//
 	// Flags and Timestamps.
 	//
-	//this.tsLastGameOver = -1;
-
 	this.stateId = STATE_UNINITIALIZED;
 	this.tsLastStateUpdate = -1;
 
 	this.tsLastSoftDrop = -1;
-
-	/*
-	this.tsLastFallen = -1;
-	this.tsLastLocked = -1;
-	this.tsLastElimination = -1;
-	this.tsLastSpawned = -1;
-	*/
 }
 
 GameState.prototype.setPauseStatus = function(command, ts) {
@@ -502,8 +490,47 @@ GameState.prototype._isGameOver = function() {
 }
 
 GameState.prototype._getFullRows = function() {
-	// @Todo.
-	return []
+	let ret = [];
+
+	for (let r = 0; r < this.rowSize; r++) {
+		let fullflag = true;
+		for (let c = 0; c < this.colSize; c++) {
+			if (this.matrixLockedTetriminos[r][c] === ' ') {
+				fullflag = false;
+				break;
+			}
+		}
+
+		if (fullflag) {
+			ret.push(r);
+		}
+	}
+
+	return ret;
+}
+
+GameState.prototype._removeFullRows = function(arr) {
+	// @par arr
+	//     Array of full row indices. Sorted from small to large.
+	//
+	// @Todo. The code is inefficient and dirty.
+	// Need a better way to do it. --wshtan, 5 Sep 2020.
+	//
+	let newmat = [];
+
+	let rowIndex = this.rowSize - 1;
+
+	for (let r = this.rowSize - 1; r >= 0; r--) {
+		if (!arr.includes(r)) {
+			newmat.unshift(this.matrixLockedTetriminos[r]);
+		}
+	}
+
+	for (let i = newmat.length; i < this.rowSize; i++) {
+		newmat.unshift([' ',' ',' ',' ',' ',' ',' ',' ',' ', ' ']);
+	}
+
+	this.matrixLockedTetriminos = newmat;
 }
 
 GameState.prototype._calculateScore = function(arr) {
@@ -543,9 +570,11 @@ GameState.prototype.update = function(ts) {
 		} else {
 			let fullRows = this._getFullRows();
 			if (fullRows.length === 0) {
+				logprint('No elimination. ' + ts);
 				this.stateId = STATE_LOCKED_NO_ELIMINATION;
 			} else {
 				// @Todo. Add score.
+				logprint('Rows [' + fullRows.join() + '] eliminatable. ' + ts);
 				this.stateId = STATE_WAITING_FOR_ELIMINATION;
 			}
 		}
@@ -561,6 +590,7 @@ GameState.prototype.update = function(ts) {
 	} else if (this.stateId === STATE_WAITING_FOR_ELIMINATION) {
 
 		if (ts - this.tsLastStateUpdate >= 500) {
+			this._removeFullRows(this._getFullRows());
 			logprint('Spawned. ' + ts);
 			this._spawnNewTetrimino(ts);
 		}
@@ -797,13 +827,13 @@ EventHub.prototype._listen = function() {
 		if (e.touches.length === 0) {
 			let dx = _this.touchCurrentX - _this.touchStartX;
 			let dy = _this.touchCurrentY - _this.touchStartY;
-			if (dx * dx + dy * dy <= 400) { 
+			if (dx * dx + dy * dy <= 400) {
 				// Clicked.
 				//
 				// 400 == CellWidth * CellWidth.
 				// @Todo. Put 400 into configuration.
 				// --wshtan, 3 Sep 2020.
-				// 
+				//
 				_this._pushEvent('spinTetrimino', 'l');
 			}
 
@@ -815,7 +845,7 @@ EventHub.prototype._listen = function() {
 	});
 
 	document.body.addEventListener('keydown', function(e) {
-		e.preventDefault();
+		//e.preventDefault();
 
 		e = e || window.event;
 		e = e.keyCode || e.which;
