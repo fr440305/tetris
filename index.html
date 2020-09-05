@@ -133,11 +133,13 @@ Reference: https://harddrop.com/wiki/Tetris_Wiki
 
 <div id='GameContainer'>
 	<div id='GameMatrix' data-matrix-size='20x10'> </div>
-	<!--<pre id='LoggingElement'></pre>-->
+	<pre id='LoggingElement'></pre>
 </div>
 
 
 <script>
+
+"use strict";
 
 function logprint(msg) {
 	document.getElementById('LoggingElement').innerText += (msg + '\n');
@@ -201,6 +203,14 @@ const R33 = [6, 3, 0, 7, 4, 1, 8, 5, 2];
 const L44 = [3, 7, 11, 15, 2, 6, 10, 14, 1, 5, 9, 13, 0, 4, 8, 12];
 const R44 = [12, 8, 4, 0, 13, 9, 5, 1, 14, 10, 6, 2, 15, 11, 7, 3];
 
+const STATE_UNINITIALIZED = 0;
+const STATE_SPAWNED = 1;
+const STATE_LOCKED = 2;
+const STATE_LOCKED_NO_ELIMINATION = 3;
+const STATE_WAITING_FOR_ELIMINATION = 4;
+//const STATE_ELIMINATED = 5;
+const STATE_GAME_OVER = 6;
+
 function GameState(rowSize, colSize, elapsed) {
 	this.elapsed = elapsed;
 
@@ -218,23 +228,32 @@ function GameState(rowSize, colSize, elapsed) {
 	this.rowSize = rowSize;
 	this.colSize = colSize;
 
-	this.isPaused = false;
-	this.isGameOver = false;
-	this.isHardDroppable = false;
-
-	//
-	// Timestamps.
-	//
-	this.tsLastContinue = 0;
-	this.tsLastGameOver = 0;
-
-	this.tsLastSoftDrop = 0;
-	this.tsLastFallen = 0;
-	this.tsLastLocked = 0;
-	this.tsLastSpawned = 0;
-
 	this.matrixLockedTetriminos = newMatrix(this.rowSize, this.colSize, ' ');
 	this.upcomingTetriminoTypes = [];
+
+	this.isPaused = false;
+	this.tsLastContinue = -1;
+
+	//this.isHardDroppable = false;
+
+	this.score = 0;
+
+	//
+	// Flags and Timestamps.
+	//
+	//this.tsLastGameOver = -1;
+
+	this.stateId = STATE_UNINITIALIZED;
+	this.tsLastStateUpdate = -1;
+
+	this.tsLastSoftDrop = -1;
+
+	/*
+	this.tsLastFallen = -1;
+	this.tsLastLocked = -1;
+	this.tsLastElimination = -1;
+	this.tsLastSpawned = -1;
+	*/
 }
 
 GameState.prototype.setPauseStatus = function(command, ts) {
@@ -305,10 +324,6 @@ GameState.prototype._moveCurrentTetrimino = function(direction, ts) {
 		this.colSize
 	)) {
 		// Overlapped. Operation failed.
-		if (direction === 'd') {
-			this.tsLastFallen = ts;
-		}
-
 		return false;
 	}
 
@@ -319,12 +334,10 @@ GameState.prototype._moveCurrentTetrimino = function(direction, ts) {
 }
 
 GameState.prototype._hardDropCurrentTetrimino = function(ts) {
-	if (this.hardDroppable === false) {
+	logprint("Hard drop.");
+	if (this.stateId !== STATE_SPAWNED) {
 		return false;
 	}
-
-	// Disable the hard drop functionality until the re-spawn is complete.
-	this.hardDroppable = false;
 
 	for (let r = this.currentTetrimino.r; r < this.rowSize; r++) {
 		if (
@@ -340,8 +353,7 @@ GameState.prototype._hardDropCurrentTetrimino = function(ts) {
 		}
 	}
 
-	this.tsLastFallen = ts;
-	this.tsLastLocked = ts;
+	this._lockCurrentTetrimino(ts);
 
 	return true;
 }
@@ -422,25 +434,34 @@ GameState.prototype.operateCurrentTetrimino = function(operation, direction, ts)
 
 GameState.prototype._lockCurrentTetrimino = function(ts) {
 	//
-	// Reset this.tsLastLocked and add the current
+	// Reset state info and add the current
 	// tetrimino into this.matrixLockedTetriminos.
 	//
-	this.tsLastLocked = ts;
+	this.stateId = STATE_LOCKED;
+	this.tsLastStateUpdate = ts;
 
 	let tetriminoMatrixSize = (this.currentTetrimino.mat.length === 16) ? 4 : 3;
-	for (let r = 0; r < tetriminoMatrixSize; r++) {
-		for (let c = 0; c < tetriminoMatrixSize; c++) {
-			if (this.currentTetrimino.mat[r * tetriminoMatrixSize + c] === 1) {
-				let realR = this.currentTetrimino.r + r;
-				let realC = this.currentTetrimino.c + c;
-				this.matrixLockedTetriminos[realR][realC] = this.currentTetrimino.type;
+
+	for (let i = 0; i < this.currentTetrimino.mat.length; i++) {
+		if (this.currentTetrimino.mat[i] === 1) {
+			let realR = this.currentTetrimino.r + Math.floor(i / tetriminoMatrixSize);
+			let realC = this.currentTetrimino.c + (i % tetriminoMatrixSize);
+			if (realR < 0) {
+				// It means that the current tetrimino is top-out.
+				// So the game is over.
+				return false;
 			}
+			this.matrixLockedTetriminos[realR][realC] = this.currentTetrimino.type;
 		}
 	}
+
+	return true;
 }
 
 GameState.prototype._spawnNewTetrimino = function(ts) {
-	this.tsLastSpawned = ts;
+	this.stateId = STATE_SPAWNED;
+	this.tsLastStateUpdate = ts;
+	this.tsLastSoftDrop = ts;
 
 	if (this.upcomingTetriminoTypes.length === 0) {
 		// Generate another sequence of 7-unrepeated tetriminos.
@@ -477,39 +498,73 @@ GameState.prototype._spawnNewTetrimino = function(ts) {
 	}
 }
 
+GameState.prototype._isGameOver = function() {
+}
+
+GameState.prototype._getFullRows = function() {
+	// @Todo.
+	return []
+}
+
+GameState.prototype._calculateScore = function(arr) {
+	//@Todo.
+	return 0;
+}
+
+
 // GameState.update updates the info of the game state.
 //
 // @par ts Number
 //     Timestamp given by window.requestAnimationFrame.
 //
 GameState.prototype.update = function(ts) {
-	if (this.isPaused || this.isGameOver) {
+	if (this.isPaused || this.stateId === STATE_GAME_OVER) {
 		return;
 	}
 
-	if (
-		this.tsLastFallen > this.tsLastLocked &&
-		this.tsLastFallen > this.tsLastSpawned
-	) {
-		// Just fallen.
-		this._lockCurrentTetrimino(ts);
-		return;
-	}
+	// Check current state
+	if (this.stateId === STATE_SPAWNED) {
 
-	if (
-		this.tsLastLocked > this.tsLastFallen &&
-		this.tsLastLocked > this.tsLastSpawned
-	) {
-		// Just locked.
+		if (ts - this.tsLastSoftDrop > this.elapsed) {
+			this.tsLastSoftDrop = ts;
+			if (!this._moveCurrentTetrimino('d', ts)) {
+				if (!this._lockCurrentTetrimino()) {
+					this.stateId = STATE_GAME_OVER;
+					this.tsLastStateUpdate = ts;
+					logprint("GameOver");
+				}
+			}
+		}
+
+	} else if (this.stateId === STATE_LOCKED) {
+
+		logprint("Locked.");
+		let fullRows = this._getFullRows();
+		if (fullRows.length === 0) {
+			this.stateId = STATE_LOCKED_NO_ELIMINATION;
+		} else {
+			this.stateId = STATE_WAITING_FOR_ELIMINATION;
+		}
+		this.tsLastStateUpdate = ts;
+
+	} else if (this.stateId === STATE_LOCKED_NO_ELIMINATION) {
+
+		if (ts - this.tsLastStateUpdate >= 2000) {
+			this._spawnNewTetrimino(ts);
+		}
+
+	} else if (this.stateId === STATE_WAITING_FOR_ELIMINATION) {
+
+		if (ts - this.tsLastStateUpdate >= 5000) {
+			this._spawnNewTetrimino(ts);
+		}
+
+	} else if (this.stateId === STATE_GAME_OVER) {
+
+		// Already returned at the top of the update function.
+
+	} else if (this.stateId === STATE_UNINITIALIZED) {
 		this._spawnNewTetrimino(ts);
-
-		// Re-enable the hard drop functionality after the new tetrimino is ready.
-		this.hardDroppable = true;
-	}
-
-	if (ts - this.tsLastSoftDrop > this.elapsed) {
-		this.tsLastSoftDrop = ts;
-		this._moveCurrentTetrimino('d', ts);
 	}
 }
 
@@ -546,7 +601,7 @@ Renderer.prototype._cleanupMatrix = function(mat, rowSize, colSize) {
 
 Renderer.prototype._writeCurrentTetriminoToMatrix = function(currentTetrimino, matrix) {
 	let tetriminoMatrixSize = (currentTetrimino.mat.length === 16) ? 4 : 3;
-	for (let i = 0; i < tetrimino.mat.length; i++) {
+	for (let i = 0; i < currentTetrimino.mat.length; i++) {
 		let realR = currentTetrimino.r + Math.floor(i / tetriminoMatrixSize);
 		let realC = currentTetrimino.c + (i % tetriminoMatrixSize);
 
@@ -554,7 +609,7 @@ Renderer.prototype._writeCurrentTetriminoToMatrix = function(currentTetrimino, m
 			realR >= 0 && realR < this.rowSize &&
 			realC >= 0 && realC < this.colSize
 		) {
-			switch (currentTetrimino.mat[r * tetriminoMatrixSize + c]) {
+			switch (currentTetrimino.mat[i]) {
 				case 0:
 					matrix[realR][realC] = ' ';
 					break;
@@ -749,6 +804,7 @@ EventHub.prototype._listen = function() {
 	});
 
 	document.body.addEventListener('keydown', function(e) {
+		e.preventDefault();
 
 		e = e || window.event;
 		e = e.keyCode || e.which;
@@ -826,7 +882,7 @@ GameEngine.prototype._run = function() {
 	(function loopWarpper(ts) {
 		_this._loop(ts);
 		window.requestAnimationFrame(loopWarpper);
-	})();
+	})(0);
 }
 
 let GE = new GameEngine(GameState, Renderer, EventHub, {
