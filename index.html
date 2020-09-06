@@ -708,10 +708,9 @@ Renderer.prototype._writeHardDropHintToMatrix = function(
 		if (currentTetrimino.mat[i] === 1) {
 			let realR = finalR + Math.floor(i / tetriminoMatrixSize);
 			let realC = currentTetrimino.c + (i % tetriminoMatrixSize);
-			if (matrix[realR] === undefined) {
-				logprint('err matrix[realR] undef.' + finalR + ' ' + realR);
+			if (matrix[realR][realC] === ' ') {
+				matrix[realR][realC] = 'H';
 			}
-			matrix[realR][realC] = 'H';
 		}
 	}
 }
@@ -873,9 +872,12 @@ EventHub.prototype._listen = function() {
 
 				if (direction !== 'u') {
 					_this._pushEvent('moveTetrimino', direction);
-				} else {
+				} /* else {
 					_this._pushEvent('hardDropTetrimino', '');
-				}
+				} */
+				// @Todo. Find a better triggering gesture
+				// to trigger the harddrop operation.
+				// --wshtan, 6 Sep 2020.
 
 				_this.touchMovedX = _this.touchCurrentX;
 				_this.touchMovedY = _this.touchCurrentY;
