@@ -114,6 +114,15 @@ Reference: https://harddrop.com/wiki/Tetris_Wiki
 	border-color: orange;
 }
 
+#GameMatrix>div>div.harddrop-hint::after {
+	position: absolute;
+	width: 8px;
+	height: 8px;
+	content: "";
+	background: black;
+	transform: translate(6px, 6px);
+}
+
 #LoggingElement {
 	display: block;
 	width: 300px;
@@ -635,7 +644,10 @@ Renderer.prototype._cleanupMatrix = function(mat, rowSize, colSize) {
 	}
 }
 
-Renderer.prototype._writeCurrentTetriminoToMatrix = function(currentTetrimino, matrix) {
+Renderer.prototype._writeCurrentTetriminoToMatrix = function(
+	currentTetrimino,
+	matrix
+) {
 	let tetriminoMatrixSize = (currentTetrimino.mat.length === 16) ? 4 : 3;
 	for (let i = 0; i < currentTetrimino.mat.length; i++) {
 		let realR = currentTetrimino.r + Math.floor(i / tetriminoMatrixSize);
@@ -653,6 +665,53 @@ Renderer.prototype._writeCurrentTetriminoToMatrix = function(currentTetrimino, m
 					matrix[realR][realC] = 'A';
 					break;
 			}
+		}
+	}
+}
+
+Renderer.prototype._writeHardDropHintToMatrix = function(
+	currentTetrimino,
+	matrix
+) {
+	// @Todo @Ugly.
+	let tetriminoMatrixSize = (currentTetrimino.mat.length === 16) ? 4 : 3;
+
+	let finalR;
+	let breakFlag = false;
+	for (let r = currentTetrimino.r; r < this.rowSize; r++) {
+		if (breakFlag === true) {
+			break;
+		}
+
+		for (let i = 0; i < currentTetrimino.mat.length; i++) {
+			if (currentTetrimino.mat[i] === 1) {
+				let realR = r + Math.floor(i / tetriminoMatrixSize);
+				let realC = currentTetrimino.c + (i % tetriminoMatrixSize);
+
+				if (
+					realR >= this.rowSize || (
+						realR >= 0 &&
+						matrix[realR][realC] !== ' ' &&
+						matrix[realR][realC] !== 'A'
+					)
+				) {
+					finalR = r - 1;
+					breakFlag = true;
+					break;
+				}
+			}
+		}
+	}
+
+	//logprint('finalR' + finalR);
+	for (let i = 0; i < currentTetrimino.mat.length; i++) {
+		if (currentTetrimino.mat[i] === 1) {
+			let realR = finalR + Math.floor(i / tetriminoMatrixSize);
+			let realC = currentTetrimino.c + (i % tetriminoMatrixSize);
+			if (matrix[realR] === undefined) {
+				logprint('err matrix[realR] undef.' + finalR + ' ' + realR);
+			}
+			matrix[realR][realC] = 'H';
 		}
 	}
 }
@@ -678,6 +737,10 @@ Renderer.prototype.render = function(gameState, ts) {
 		}
 	}
 
+	if (gameState.stateId === STATE_SPAWNED) { // @Todo @Ugly.
+		this._writeHardDropHintToMatrix(gameState.currentTetrimino, this.matrix);
+	}
+
 	for (let r = 0; r < this.rowSize; r++) {
 		for (let c = 0; c < this.colSize; c++) {
 			this.cells[r][c].classList.remove(
@@ -687,7 +750,9 @@ Renderer.prototype.render = function(gameState, ts) {
 
 				'locked-I', 'locked-O', 'locked-T',
 				'locked-S', 'locked-Z', 'locked-J',
-				'locked-L'
+				'locked-L',
+
+				'harddrop-hint'
 			);
 
 			let cellContent = this.matrix[r][c];
@@ -695,8 +760,10 @@ Renderer.prototype.render = function(gameState, ts) {
 				// Pass.
 			} else if (cellContent  === 'A') {
 				this.cells[r][c].classList.add(
-					'active-' + gameState.currentTetrimino.type
+					'active-' + gameState.currentTetrimino.type,
 				);
+			} else if (cellContent === 'H') {
+				this.cells[r][c].classList.add('harddrop-hint');
 			} else {
 				this.cells[r][c].classList.add('locked-' + cellContent);
 			}
@@ -724,7 +791,7 @@ function EventHub(keyConfig) {
 			'K': 'r'
 		},
 		hardDropKey: 'W',
-		pauseToggleKey: ' '
+		pauseToggleKey: 'L'
 	};
 
 	/*
@@ -806,14 +873,9 @@ EventHub.prototype._listen = function() {
 
 				if (direction !== 'u') {
 					_this._pushEvent('moveTetrimino', direction);
-				} /* else {
+				} else {
 					_this._pushEvent('hardDropTetrimino', '');
-				} */
-				//
-				// Don't do harddrop at mobile device.
-				// It's too dangerous for player.
-				// --wshtan, 4 Sep 2020.
-				//
+				}
 
 				_this.touchMovedX = _this.touchCurrentX;
 				_this.touchMovedY = _this.touchCurrentY;
@@ -845,8 +907,6 @@ EventHub.prototype._listen = function() {
 	});
 
 	document.body.addEventListener('keydown', function(e) {
-		//e.preventDefault();
-
 		e = e || window.event;
 		e = e.keyCode || e.which;
 
