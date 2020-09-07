@@ -6,6 +6,7 @@ Play at [https://fr440305.github.io/tetris/](https://fr440305.github.io/tetris/)
 
 ## Keyboard Operations
 
-Press W, A, S, D to control the shifting direction of the current tetrimino;
+Press A, S, D to control the shifting direction of the current tetrimino;
+W to hard-drop;
 J, K to rotate;
 L to toggle pause.
