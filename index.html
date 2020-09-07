@@ -148,6 +148,12 @@ Reference: https://harddrop.com/wiki/Tetris_Wiki
 
 <script>
 
+// @Bug. When the game is about to top-out,
+// and if we keep spining the last top
+// tetrimino, the tetrimino will not be locked down
+// and sometimes will disappeard. Weird bug.
+// --wshtan, 7 Sep 2020.
+
 "use strict";
 
 function logprint(msg) {
@@ -708,7 +714,13 @@ Renderer.prototype._writeHardDropHintToMatrix = function(
 		if (currentTetrimino.mat[i] === 1) {
 			let realR = finalR + Math.floor(i / tetriminoMatrixSize);
 			let realC = currentTetrimino.c + (i % tetriminoMatrixSize);
-			if (matrix[realR][realC] === ' ') {
+			if (
+				realR >= 0 &&
+				realR < this.rowSize &&
+				realC >= 0 &&
+				realC < this.colSize &&
+				matrix[realR][realC] === ' '
+			) {
 				matrix[realR][realC] = 'H';
 			}
 		}
