@@ -9,14 +9,16 @@ Reference: https://harddrop.com/wiki/Tetris_Wiki
 <head>
 
 <meta charset="utf8">
-<meta name="viewport" content="width=device-width; initial-scale=1.0">
+<meta name="viewport" content="width=300px; initial-scale=1.0">
 
 <style>
 
 #GameContainer {
 	display: grid;
-	margin-top: 0;
-	place-items: center;
+	max-width: 300px;
+	margin: 0 auto;
+	border: 1px solid green;
+	/* place-items: center; */
 }
 #GameMatrix {
 	border: 2px solid black;
@@ -24,6 +26,7 @@ Reference: https://harddrop.com/wiki/Tetris_Wiki
 	padding: 3px;
 	display: table;
 	background: #fff;
+	max-width: 220px;
 }
 #GameMatrix>div {
 	display: table-row;
