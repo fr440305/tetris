@@ -15,12 +15,12 @@ Reference: https://harddrop.com/wiki/Tetris_Wiki
 
 #GameContainer {
 	display: grid;
-	max-width: 300px;
+	max-width: 400px;
 	margin: 0 auto;
 	border: 1px solid green;
-	/* place-items: center; */
 }
 #GameMatrix {
+	grid-column: 1;
 	border: 2px solid black;
 	border-radius: 5px;
 	padding: 3px;
@@ -128,7 +128,7 @@ Reference: https://harddrop.com/wiki/Tetris_Wiki
 
 #LoggingElement {
 	display: block;
-	width: 300px;
+	width: 100%;
 	height: 250px;
 	background: #ddd;
 	overflow-x: scroll;
@@ -138,6 +138,34 @@ Reference: https://harddrop.com/wiki/Tetris_Wiki
 
 }
 
+#SideBar {
+	grid-column: 2;
+}
+
+#NextTetriminoWarpper {
+	border: 2px solid black;
+	border-radius: 5px;
+	padding: 5px;
+}
+
+.section-title {
+	text-align: center;
+	margin-bottom: 5px;
+}
+
+#NextTetrimino {
+	margin: 0 auto;
+	text-align: center;
+}
+
+#NextTetrimino.I::after { content: "I"; }
+#NextTetrimino.O::after { content: "O"; }
+#NextTetrimino.T::after { content: "T"; }
+#NextTetrimino.S::after { content: "S"; }
+#NextTetrimino.Z::after { content: "Z"; }
+#NextTetrimino.J::after { content: "J"; }
+#NextTetrimino.L::after { content: "L"; }
+
 </style>
 </head>
 
@@ -145,8 +173,15 @@ Reference: https://harddrop.com/wiki/Tetris_Wiki
 
 <div id='GameContainer'>
 	<div id='GameMatrix' data-matrix-size='20x10'> </div>
-	<pre id='LoggingElement'></pre>
+	<div id='SideBar'>
+		<div id='NextTetriminoWarpper'>
+			<div class='section-title'>Next Tetrimino</div>
+			<div id='NextTetrimino'> </div>
+		</div>
+	</div>
 </div>
+
+<pre id='LoggingElement'></pre>
 
 
 <script>
@@ -462,7 +497,7 @@ GameState.prototype._spawnNewTetrimino = function(ts) {
 	this.tsLastStateUpdate = ts;
 	this.tsLastSoftDrop = ts;
 
-	if (this.upcomingTetriminoTypes.length === 0) {
+	if (this.upcomingTetriminoTypes.length <= 1) {
 		// Generate another sequence of 7-unrepeated tetriminos.
 
 		let seq = ['I', 'O', 'T', 'S', 'Z', 'J', 'L'];
@@ -485,7 +520,8 @@ GameState.prototype._spawnNewTetrimino = function(ts) {
 	}
 
 	// Reset this.currentTetrimino.
-	let newTetriminoType = this.upcomingTetriminoTypes.pop();
+	let newTetriminoType = this.upcomingTetriminoTypes.shift();
+	//logprint('sp ' + this.upcomingTetriminoTypes );
 
 	this.currentTetrimino.r = -1;
 	this.currentTetrimino.c = Math.floor(this.colSize / 2) - 1;
@@ -624,6 +660,7 @@ GameState.prototype.update = function(ts) {
 
 function Renderer(rowSize, colSize) {
 	this.elemGameMatrix = document.getElementById('GameMatrix');
+	this.elemNextTetrimino = document.getElementById('NextTetrimino');
 	let matrixSize = this.elemGameMatrix.dataset.matrixSize;
 	this.rowSize = rowSize;
 	this.colSize = colSize;
@@ -739,6 +776,10 @@ Renderer.prototype._writeHardDropHintToMatrix = function(
 //     Timestamp given by window.requestAnimationFrame.
 //
 Renderer.prototype.render = function(gameState, ts) {
+	this.elemNextTetrimino.classList.remove( "I", "O", "T", "S", "Z", "J", "L" );
+
+	this.elemNextTetrimino.classList.add(gameState.upcomingTetriminoTypes[0]);
+
 	this._cleanupMatrix(this.matrix, this.rowSize, this.colSize);
 
 	this._writeCurrentTetriminoToMatrix(gameState.currentTetrimino, this.matrix);
@@ -787,7 +828,10 @@ Renderer.prototype.render = function(gameState, ts) {
 
 // Event Specification.
 //
-//     - keypress
+//     - setPauseStatus
+//     - moveTetrimino
+//     - spinTetrimino
+//     - hardDropTetrimino
 //
 function EventHub(keyConfig) {
 	this.eventQueue = [];
@@ -808,10 +852,6 @@ function EventHub(keyConfig) {
 		pauseToggleKey: 'L'
 	};
 
-	/*
-	this.tsLastTouchStart = 0;
-	*/
-
 	this.touchStartX = -1;
 	this.touchStartY = -1;
 	this.touchMovedX = -1;
@@ -825,7 +865,6 @@ function EventHub(keyConfig) {
 EventHub.prototype._pushEvent = function(eventType, data) {
 	this.eventQueue.unshift({
 		eventType: eventType,
-		timestamp: performance.now(),
 		data     : data
 	});
 }
@@ -835,7 +874,8 @@ EventHub.prototype._listen = function() {
 	let _this = this;
 
 	// @Todo @Bug: Sometimes the blur event
-	// won't be triggered at Safari. --wshtan, 2 Sep 2020.
+	// won't be triggered at some mobile browsers.
+	// --wshtan, 2 Sep 2020.
 	//
 	window.addEventListener('blur', function() {
 		_this._pushEvent('setPauseStatus', 'pause');
@@ -845,9 +885,6 @@ EventHub.prototype._listen = function() {
 		e.preventDefault();
 
 		if (e.touches.length === 1) {
-			/*
-			_this.tsLastTouchStart = performance.now();
-			*/
 
 			_this.touchStartX = e.touches[0].clientX;
 			_this.touchStartY = e.touches[0].clientY;
@@ -887,9 +924,7 @@ EventHub.prototype._listen = function() {
 
 				if (direction !== 'u') {
 					_this._pushEvent('moveTetrimino', direction);
-				} /* else {
-					_this._pushEvent('hardDropTetrimino', '');
-				} */
+				}
 				// @Todo. Find a better triggering gesture
 				// to trigger the harddrop operation.
 				// --wshtan, 6 Sep 2020.
@@ -914,6 +949,11 @@ EventHub.prototype._listen = function() {
 				// --wshtan, 3 Sep 2020.
 				//
 				_this._pushEvent('spinTetrimino', 'l');
+			} else {
+				if (dy < dx && dy < -dx) {
+					// moving up and release.
+					_this._pushEvent('setPauseStatus', 'toggle');
+				}
 			}
 
 			_this.touchStartX = -1;
