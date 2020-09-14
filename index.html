@@ -186,7 +186,7 @@ Reference: https://harddrop.com/wiki/Tetris_Wiki
 
 <script>
 
-// @Bug. When the game is about to top-out,
+// %%Bug. When the game is about to top-out,
 // and if we keep spining the last top
 // tetrimino, the tetrimino will not be locked down
 // and sometimes will disappeard. Weird bug.
@@ -425,7 +425,7 @@ GameState.prototype._spinCurrentTetrimino = function(direction) {
 	)) {
 		// Overlapped. Operation failed.
 
-		// @Todo: Try calibration if out of bound.
+		// %%Todo: Try calibration if out of bound.
 		// If calibration failed, return false
 		// and make no change.
 
@@ -567,7 +567,7 @@ GameState.prototype._removeFullRows = function(arr) {
 	// @par arr
 	//     Array of full row indices. Sorted from small to large.
 	//
-	// @Todo. The code is inefficient and dirty.
+	// %%Todo Cleanup. The code is inefficient and dirty.
 	// Need a better way to do it. --wshtan, 5 Sep 2020.
 	//
 	let newmat = [];
@@ -587,8 +587,13 @@ GameState.prototype._removeFullRows = function(arr) {
 	this.matrixLockedTetriminos = newmat;
 }
 
-GameState.prototype._calculateScore = function(arr) {
-	//@Todo.
+GameState.prototype._calculateEliminationScore = function(arr) {
+	// %%Todo NewFeat. Calculate the score earned by elimination.
+	// --wshtan, 13 Sep 2020
+	//
+	// @par arr []Number
+	//     An array of the indices of full rows.
+
 	return 0;
 }
 
@@ -627,7 +632,7 @@ GameState.prototype.update = function(ts) {
 				logprint('No elimination. ' + ts);
 				this.stateId = STATE_LOCKED_NO_ELIMINATION;
 			} else {
-				// @Todo. Add score.
+				// %%Todo. Add score.
 				logprint('Rows [' + fullRows.join() + '] eliminatable. ' + ts);
 				this.stateId = STATE_WAITING_FOR_ELIMINATION;
 			}
@@ -719,7 +724,7 @@ Renderer.prototype._writeHardDropHintToMatrix = function(
 	currentTetrimino,
 	matrix
 ) {
-	// @Todo @Ugly.
+	// %%Todo Ugly.
 	let tetriminoMatrixSize = (currentTetrimino.mat.length === 16) ? 4 : 3;
 
 	let finalR;
@@ -792,7 +797,7 @@ Renderer.prototype.render = function(gameState, ts) {
 		}
 	}
 
-	if (gameState.stateId === STATE_SPAWNED) { // @Todo @Ugly.
+	if (gameState.stateId === STATE_SPAWNED) { // %%Todo Ugly.
 		this._writeHardDropHintToMatrix(gameState.currentTetrimino, this.matrix);
 	}
 
@@ -870,10 +875,9 @@ EventHub.prototype._pushEvent = function(eventType, data) {
 }
 
 EventHub.prototype._listen = function() {
-	// @Todo
 	let _this = this;
 
-	// @Todo @Bug: Sometimes the blur event
+	// %%Todo Bug: Sometimes the blur event
 	// won't be triggered at some mobile browsers.
 	// --wshtan, 2 Sep 2020.
 	//
@@ -925,7 +929,7 @@ EventHub.prototype._listen = function() {
 				if (direction !== 'u') {
 					_this._pushEvent('moveTetrimino', direction);
 				}
-				// @Todo. Find a better triggering gesture
+				// %%Todo. Find a better triggering gesture
 				// to trigger the harddrop operation.
 				// --wshtan, 6 Sep 2020.
 
@@ -945,7 +949,7 @@ EventHub.prototype._listen = function() {
 				// Clicked.
 				//
 				// 400 == CellWidth * CellWidth.
-				// @Todo. Put 400 into configuration.
+				// %%Todo. Put 400 into configuration.
 				// --wshtan, 3 Sep 2020.
 				//
 				_this._pushEvent('spinTetrimino', 'l');
