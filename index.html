@@ -15,12 +15,12 @@ Reference: https://harddrop.com/wiki/Tetris_Wiki
 
 #GameContainer {
 	display: grid;
-	max-width: 300px;
+	max-width: 400px;
 	margin: 0 auto;
 	border: 1px solid green;
-	/* place-items: center; */
 }
 #GameMatrix {
+	grid-column: 1;
 	border: 2px solid black;
 	border-radius: 5px;
 	padding: 3px;
@@ -128,7 +128,7 @@ Reference: https://harddrop.com/wiki/Tetris_Wiki
 
 #LoggingElement {
 	display: block;
-	width: 300px;
+	width: 100%;
 	height: 250px;
 	background: #ddd;
 	overflow-x: scroll;
@@ -138,6 +138,34 @@ Reference: https://harddrop.com/wiki/Tetris_Wiki
 
 }
 
+#SideBar {
+	grid-column: 2;
+}
+
+#NextTetriminoWarpper {
+	border: 2px solid black;
+	border-radius: 5px;
+	padding: 5px;
+}
+
+.section-title {
+	text-align: center;
+	margin-bottom: 5px;
+}
+
+#NextTetrimino {
+	margin: 0 auto;
+	text-align: center;
+}
+
+#NextTetrimino.I::after { content: "I"; }
+#NextTetrimino.O::after { content: "O"; }
+#NextTetrimino.T::after { content: "T"; }
+#NextTetrimino.S::after { content: "S"; }
+#NextTetrimino.Z::after { content: "Z"; }
+#NextTetrimino.J::after { content: "J"; }
+#NextTetrimino.L::after { content: "L"; }
+
 </style>
 </head>
 
@@ -145,13 +173,24 @@ Reference: https://harddrop.com/wiki/Tetris_Wiki
 
 <div id='GameContainer'>
 	<div id='GameMatrix' data-matrix-size='20x10'> </div>
-	<pre id='LoggingElement'></pre>
+	<div id='SideBar'>
+		<div id='NextTetriminoWarpper'>
+			<div class='section-title'>Next Tetrimino</div>
+			<div id='NextTetrimino'> </div>
+		</div>
+		<div id='ScoreWarpper'>
+			<div class='section-title'>Score</div>
+			<div id='ScoreContainer'>0</div>
+		</div>
+	</div>
 </div>
+
+<pre id='LoggingElement'></pre>
 
 
 <script>
 
-// @Bug. When the game is about to top-out,
+// %%Bug. When the game is about to top-out,
 // and if we keep spining the last top
 // tetrimino, the tetrimino will not be locked down
 // and sometimes will disappeard. Weird bug.
@@ -390,7 +429,7 @@ GameState.prototype._spinCurrentTetrimino = function(direction) {
 	)) {
 		// Overlapped. Operation failed.
 
-		// @Todo: Try calibration if out of bound.
+		// %%Todo: Try calibration if out of bound.
 		// If calibration failed, return false
 		// and make no change.
 
@@ -462,7 +501,7 @@ GameState.prototype._spawnNewTetrimino = function(ts) {
 	this.tsLastStateUpdate = ts;
 	this.tsLastSoftDrop = ts;
 
-	if (this.upcomingTetriminoTypes.length === 0) {
+	if (this.upcomingTetriminoTypes.length <= 1) {
 		// Generate another sequence of 7-unrepeated tetriminos.
 
 		let seq = ['I', 'O', 'T', 'S', 'Z', 'J', 'L'];
@@ -485,7 +524,8 @@ GameState.prototype._spawnNewTetrimino = function(ts) {
 	}
 
 	// Reset this.currentTetrimino.
-	let newTetriminoType = this.upcomingTetriminoTypes.pop();
+	let newTetriminoType = this.upcomingTetriminoTypes.shift();
+	//logprint('sp ' + this.upcomingTetriminoTypes );
 
 	this.currentTetrimino.r = -1;
 	this.currentTetrimino.c = Math.floor(this.colSize / 2) - 1;
@@ -531,7 +571,7 @@ GameState.prototype._removeFullRows = function(arr) {
 	// @par arr
 	//     Array of full row indices. Sorted from small to large.
 	//
-	// @Todo. The code is inefficient and dirty.
+	// %%Todo Cleanup. The code is inefficient and dirty.
 	// Need a better way to do it. --wshtan, 5 Sep 2020.
 	//
 	let newmat = [];
@@ -551,9 +591,48 @@ GameState.prototype._removeFullRows = function(arr) {
 	this.matrixLockedTetriminos = newmat;
 }
 
-GameState.prototype._calculateScore = function(arr) {
-	//@Todo.
-	return 0;
+GameState.prototype._calculateEliminationScore = function(arr) {
+	// %%Todo NewFeat. Calculate the score earned by elimination.
+	// --wshtan, 13 Sep 2020
+	//
+	// @par arr []Number
+	//     An array of the indices of full rows.
+
+	// Sort from small to large:
+	for (let i = 0; i < arr.length; i++) {
+		for (let j = i+1; j < arr.length; j++) {
+			if (arr[i] > arr[j]) {
+				let tmp = arr[i];
+				arr[i] = arr[j];
+				arr[j] = tmp;
+			}
+		}
+	}
+
+	if (arr.length === 0) {
+		return 0;
+	} else if (arr.length === 1) {
+		return 100;
+	} else if (arr.length === 2) {
+		if (arr[0] + 1 !== arr[1]) {
+			// Not continuous
+			return 200;
+		} else {
+			return 300;
+		}
+	} else if (arr.length === 3) {
+		if (arr[0] + 1 === arr[1] && arr[1] + 1 === arr[2]) {
+			return 500;
+		} else if (arr[0] + 1 !== arr[1] && arr[1] + 1 !== arr[2]) {
+			return 300;
+		} else {
+			return 400;
+		}
+	} else if (arr.length === 4) {
+		return 800;
+	} else {
+		logprint("_calculateEliminationScore :: Should not happen!! arr == " + arr.toString());
+	}
 }
 
 
@@ -591,8 +670,8 @@ GameState.prototype.update = function(ts) {
 				logprint('No elimination. ' + ts);
 				this.stateId = STATE_LOCKED_NO_ELIMINATION;
 			} else {
-				// @Todo. Add score.
-				logprint('Rows [' + fullRows.join() + '] eliminatable. ' + ts);
+				// %%Todo. Add score.
+				logprint('Rows [' + fullRows.join() + '] eliminatable. Score == ' + this.score + ' @' + ts);
 				this.stateId = STATE_WAITING_FOR_ELIMINATION;
 			}
 		}
@@ -608,6 +687,7 @@ GameState.prototype.update = function(ts) {
 	} else if (this.stateId === STATE_WAITING_FOR_ELIMINATION) {
 
 		if (ts - this.tsLastStateUpdate >= 500) {
+			this.score += this._calculateEliminationScore(this._getFullRows());
 			this._removeFullRows(this._getFullRows());
 			logprint('Spawned. ' + ts);
 			this._spawnNewTetrimino(ts);
@@ -624,7 +704,10 @@ GameState.prototype.update = function(ts) {
 
 function Renderer(rowSize, colSize) {
 	this.elemGameMatrix = document.getElementById('GameMatrix');
+	this.elemNextTetrimino = document.getElementById('NextTetrimino');
 	let matrixSize = this.elemGameMatrix.dataset.matrixSize;
+	this.elemScoreContainer = document.getElementById('ScoreContainer');
+
 	this.rowSize = rowSize;
 	this.colSize = colSize;
 	this.cells = [];
@@ -682,7 +765,7 @@ Renderer.prototype._writeHardDropHintToMatrix = function(
 	currentTetrimino,
 	matrix
 ) {
-	// @Todo @Ugly.
+	// %%Todo Ugly.
 	let tetriminoMatrixSize = (currentTetrimino.mat.length === 16) ? 4 : 3;
 
 	let finalR;
@@ -739,6 +822,11 @@ Renderer.prototype._writeHardDropHintToMatrix = function(
 //     Timestamp given by window.requestAnimationFrame.
 //
 Renderer.prototype.render = function(gameState, ts) {
+	this.elemScoreContainer.innerText = gameState.score;
+	this.elemNextTetrimino.classList.remove( "I", "O", "T", "S", "Z", "J", "L" );
+
+	this.elemNextTetrimino.classList.add(gameState.upcomingTetriminoTypes[0]);
+
 	this._cleanupMatrix(this.matrix, this.rowSize, this.colSize);
 
 	this._writeCurrentTetriminoToMatrix(gameState.currentTetrimino, this.matrix);
@@ -751,7 +839,7 @@ Renderer.prototype.render = function(gameState, ts) {
 		}
 	}
 
-	if (gameState.stateId === STATE_SPAWNED) { // @Todo @Ugly.
+	if (gameState.stateId === STATE_SPAWNED) { // %%Todo Ugly.
 		this._writeHardDropHintToMatrix(gameState.currentTetrimino, this.matrix);
 	}
 
@@ -787,7 +875,10 @@ Renderer.prototype.render = function(gameState, ts) {
 
 // Event Specification.
 //
-//     - keypress
+//     - setPauseStatus
+//     - moveTetrimino
+//     - spinTetrimino
+//     - hardDropTetrimino
 //
 function EventHub(keyConfig) {
 	this.eventQueue = [];
@@ -808,10 +899,6 @@ function EventHub(keyConfig) {
 		pauseToggleKey: 'L'
 	};
 
-	/*
-	this.tsLastTouchStart = 0;
-	*/
-
 	this.touchStartX = -1;
 	this.touchStartY = -1;
 	this.touchMovedX = -1;
@@ -825,17 +912,16 @@ function EventHub(keyConfig) {
 EventHub.prototype._pushEvent = function(eventType, data) {
 	this.eventQueue.unshift({
 		eventType: eventType,
-		timestamp: performance.now(),
 		data     : data
 	});
 }
 
 EventHub.prototype._listen = function() {
-	// @Todo
 	let _this = this;
 
-	// @Todo @Bug: Sometimes the blur event
-	// won't be triggered at Safari. --wshtan, 2 Sep 2020.
+	// %%Todo Bug: Sometimes the blur event
+	// won't be triggered at some mobile browsers.
+	// --wshtan, 2 Sep 2020.
 	//
 	window.addEventListener('blur', function() {
 		_this._pushEvent('setPauseStatus', 'pause');
@@ -844,83 +930,91 @@ EventHub.prototype._listen = function() {
 	this.elemGameMatrix.addEventListener('touchstart', function(e) {
 		e.preventDefault();
 
-		if (e.touches.length === 1) {
-			/*
-			_this.tsLastTouchStart = performance.now();
-			*/
-
-			_this.touchStartX = e.touches[0].clientX;
-			_this.touchStartY = e.touches[0].clientY;
-
-			_this.touchMovedX = _this.touchStartX;
-			_this.touchMovedY = _this.touchStartY;
-
-			_this.touchCurrentX = _this.touchStartX;
-			_this.touchCurrentY = _this.touchStartY;
+		if (e.touches.length !== 1) {
+			return;
 		}
+
+		_this.touchStartX = e.touches[0].clientX;
+		_this.touchStartY = e.touches[0].clientY;
+
+		_this.touchMovedX = _this.touchStartX;
+		_this.touchMovedY = _this.touchStartY;
+
+		_this.touchCurrentX = _this.touchStartX;
+		_this.touchCurrentY = _this.touchStartY;
 	});
 
 	this.elemGameMatrix.addEventListener('touchmove', function(e) {
 		e.preventDefault();
 
-		if (e.touches.length >= 1) {
-			_this.touchCurrentX = e.touches[0].clientX;
-			_this.touchCurrentY = e.touches[0].clientY;
+		if (e.touches.length === 0) {
+			return;
+		}
 
-			let dx = _this.touchCurrentX - _this.touchMovedX;
-			let dy = _this.touchCurrentY - _this.touchMovedY;
-			if (dx * dx + dy * dy > 400) {
-				let direction;
-				if (dy > dx) {
-					if (dy > -dx) {
-						direction = 'd';
-					} else {
-						direction = 'l';
-					}
-				} else {
-					if (dy > -dx) {
-						direction = 'r';
-					} else {
-						direction = 'u';
-					}
-				}
+		_this.touchCurrentX = e.touches[0].clientX;
+		_this.touchCurrentY = e.touches[0].clientY;
 
-				if (direction !== 'u') {
-					_this._pushEvent('moveTetrimino', direction);
-				} /* else {
-					_this._pushEvent('hardDropTetrimino', '');
-				} */
-				// @Todo. Find a better triggering gesture
-				// to trigger the harddrop operation.
-				// --wshtan, 6 Sep 2020.
+		let dx = _this.touchCurrentX - _this.touchMovedX;
+		let dy = _this.touchCurrentY - _this.touchMovedY;
 
-				_this.touchMovedX = _this.touchCurrentX;
-				_this.touchMovedY = _this.touchCurrentY;
+		if (dx * dx + dy * dy <= 400) {
+			// Distance too small to trigger the movement.
+			return;
+		}
+
+		let direction;
+		if (dy > dx) {
+			if (dy > -dx) {
+				direction = 'd';
+			} else {
+				direction = 'l';
+			}
+		} else {
+			if (dy > -dx) {
+				direction = 'r';
+			} else {
+				direction = 'u';
 			}
 		}
+
+		if (direction !== 'u') {
+			_this._pushEvent('moveTetrimino', direction);
+		}
+		// %%Todo. Find a better triggering gesture
+		// to trigger the harddrop operation.
+		// --wshtan, 6 Sep 2020.
+
+		_this.touchMovedX = _this.touchCurrentX;
+		_this.touchMovedY = _this.touchCurrentY;
 	});
 
 	this.elemGameMatrix.addEventListener('touchend', function(e) {
 		e.preventDefault();
-
-		if (e.touches.length === 0) {
-			let dx = _this.touchCurrentX - _this.touchStartX;
-			let dy = _this.touchCurrentY - _this.touchStartY;
-			if (dx * dx + dy * dy <= 400) {
-				// Clicked.
-				//
-				// 400 == CellWidth * CellWidth.
-				// @Todo. Put 400 into configuration.
-				// --wshtan, 3 Sep 2020.
-				//
-				_this._pushEvent('spinTetrimino', 'l');
-			}
-
-			_this.touchStartX = -1;
-			_this.touchStartY = -1;
-			_this.touchCurrentX = -1;
-			_this.touchCurrentY = -1;
+		if (e.touches.length > 0) {
+			return;
 		}
+
+		let dx = _this.touchCurrentX - _this.touchStartX;
+		let dy = _this.touchCurrentY - _this.touchStartY;
+		if (dx * dx + dy * dy <= 400) {
+			// Clicked.
+			//
+			// 400 == CellWidth * CellWidth.
+			// %%Todo. Put 400 into configuration.
+			// --wshtan, 3 Sep 2020.
+			//
+			_this._pushEvent('spinTetrimino', 'l');
+		} else {
+			if (dy < dx && dy < -dx) {
+				// moving up and release.
+				_this._pushEvent('setPauseStatus', 'toggle');
+			}
+		}
+
+		_this.touchStartX = -1;
+		_this.touchStartY = -1;
+		_this.touchCurrentX = -1;
+		_this.touchCurrentY = -1;
 	});
 
 	document.body.addEventListener('keydown', function(e) {
