@@ -168,6 +168,22 @@ Reference: https://harddrop.com/wiki/Tetris_Wiki
 #NextTetrimino.J::after { content: "J"; }
 #NextTetrimino.L::after { content: "L"; }
 
+#BtnTogglePause {
+	text-align: center;
+	border-radius: 5px;
+	border: 2px black solid;
+	background: black;
+	color: white;
+}
+
+#BtnTogglePause::after {
+	content: "\25B6" "\FE0E" " Pause " "\25C0" "\FE0E";
+}
+
+.paused #BtnTogglePause::after {
+	content: "\25B6" "\FE0E" " Resume " "\25C0" "\FE0E";
+}
+
 </style>
 </head>
 
@@ -183,6 +199,8 @@ Reference: https://harddrop.com/wiki/Tetris_Wiki
 		<div id='ScoreWarpper'>
 			<div class='section-title'>Score</div>
 			<div id='ScoreContainer'>0</div>
+		</div>
+		<div id='BtnTogglePause'>
 		</div>
 	</div>
 </div>
@@ -702,6 +720,7 @@ GameState.prototype.update = function(ts) {
 }
 
 function Renderer(rowSize, colSize) {
+	this.elemGameContainer = document.getElementById('GameContainer');
 	this.elemGameMatrix = document.getElementById('GameMatrix');
 	this.elemNextTetrimino = document.getElementById('NextTetrimino');
 	let matrixSize = this.elemGameMatrix.dataset.matrixSize;
@@ -822,6 +841,12 @@ Renderer.prototype._writeHardDropHintToMatrix = function(
 //
 Renderer.prototype.render = function(gameState, ts) {
 	this.elemScoreContainer.innerText = gameState.score;
+	if (gameState.isPaused === true) {
+		this.elemGameContainer.classList.add('paused');
+	} else {
+		this.elemGameContainer.classList.remove('paused');
+	}
+
 	this.elemNextTetrimino.classList.remove( "I", "O", "T", "S", "Z", "J", "L" );
 
 	this.elemNextTetrimino.classList.add(gameState.upcomingTetriminoTypes[0]);
@@ -883,6 +908,7 @@ function EventHub(keyConfig) {
 	this.eventQueue = [];
 
 	this.elemGameMatrix = document.getElementById('GameMatrix');
+	this.elemBtnTogglePause = document.getElementById('BtnTogglePause');
 
 	this.keyConfig = keyConfig || {
 		moveKeys: {
@@ -924,6 +950,28 @@ EventHub.prototype._listen = function() {
 	//
 	window.addEventListener('blur', function() {
 		_this._pushEvent('setPauseStatus', 'pause');
+	});
+
+	let elemBtnTogglePauseClickHandler = function(e) {
+		e.preventDefault();
+		_this._pushEvent('setPauseStatus', 'toggle');
+	}
+
+	this.elemBtnTogglePause.addEventListener('click', elemBtnTogglePauseClickHandler);
+
+	this.elemBtnTogglePause.addEventListener('touchstart', function(e) {
+		e.preventDefault();
+
+		_this._pushEvent('setPauseStatus', 'toggle');
+
+		if (elemBtnTogglePauseClickHandler !== null) {
+			_this.elemBtnTogglePause.removeEventListener(
+				'click',
+				elemBtnTogglePauseClickHandler
+			);
+
+			elemBtnTogglePauseClickHandler = null;
+		}
 	});
 
 	this.elemGameMatrix.addEventListener('touchstart', function(e) {
@@ -1003,12 +1051,12 @@ EventHub.prototype._listen = function() {
 			// --wshtan, 3 Sep 2020.
 			//
 			_this._pushEvent('spinTetrimino', 'l');
-		} else {
+		} /* else {
 			if (dy < dx && dy < -dx) {
 				// moving up and release.
 				_this._pushEvent('setPauseStatus', 'toggle');
 			}
-		}
+		} */
 
 		_this.touchStartX = -1;
 		_this.touchStartY = -1;

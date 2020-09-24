@@ -24,4 +24,3 @@ For mobile clients:
 - *Scroll the finger left or right* to shift the current tetrimino;
 - *Click the playfield* to rotate;
 - (The hard-drop feature is not supported at mobile devices);
-- *Scroll the finger upward* to pause/resume the game.
