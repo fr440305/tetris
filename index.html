@@ -432,6 +432,7 @@ GameState.prototype._spinCurrentTetrimino = function(direction) {
 		// Overlapped. Operation failed.
 
 		// %%Todo: Try calibration if out of bound.
+		// For example, wall kick or ground kick.
 		// If calibration failed, return false
 		// and make no change.
 
@@ -594,9 +595,6 @@ GameState.prototype._removeFullRows = function(arr) {
 }
 
 GameState.prototype._calculateEliminationScore = function(arr) {
-	// %%Todo NewFeat. Calculate the score earned by elimination.
-	// --wshtan, 13 Sep 2020
-	//
 	// @par arr []Number
 	//     An array of the indices of full rows.
 
@@ -672,7 +670,6 @@ GameState.prototype.update = function(ts) {
 				logprint('No elimination. ' + ts);
 				this.stateId = STATE_LOCKED_NO_ELIMINATION;
 			} else {
-				// %%Todo. Add score.
 				logprint('Rows [' + fullRows.join() + '] eliminatable. Score == ' + this.score + ' @' + ts);
 				this.stateId = STATE_WAITING_FOR_ELIMINATION;
 			}
