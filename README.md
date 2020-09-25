@@ -6,9 +6,10 @@ Play at [https://fr440305.github.io/tetris/](https://fr440305.github.io/tetris/)
 
 ## Highlights
 
-- Implemented by HTML5/CSS3/JavaScript;
+- Written in HTML5/CSS3/JavaScript;
 - Vanilla JavaScript. No third-party libraries;
 - *Touch device OK*;
+- Drop-down hint.
 
 ## How to play
 
