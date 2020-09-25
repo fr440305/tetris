@@ -17,6 +17,7 @@ Reference: https://harddrop.com/wiki/Tetris_Wiki
 	display: grid;
 	max-width: 400px;
 	margin: 0 auto;
+	margin-top: 80px;
 	/* border: 1px solid green; */
 }
 #GameMatrix {
@@ -178,6 +179,10 @@ Reference: https://harddrop.com/wiki/Tetris_Wiki
 
 #BtnTogglePause::after {
 	content: "\25B6" "\FE0E" " Pause " "\25C0" "\FE0E";
+}
+
+.game-over #BtnTogglePause::after {
+	content: "\25B6" "\FE0E" " Restart" "\25C0" "\FE0E";
 }
 
 .paused #BtnTogglePause::after {
@@ -681,7 +686,7 @@ GameState.prototype.update = function(ts) {
 		// and if there are any full rows.
 		if (this._isGameOver()) {
 			logprint('Game Over. ' + ts);
-			this.stateId = STATE_GAME_OVER
+			this.stateId = STATE_GAME_OVER;
 		} else {
 			let fullRows = this._getFullRows();
 			if (fullRows.length === 0) {
@@ -840,15 +845,22 @@ Renderer.prototype._writeHardDropHintToMatrix = function(
 //     Timestamp given by window.requestAnimationFrame.
 //
 Renderer.prototype.render = function(gameState, ts) {
-	this.elemScoreContainer.innerText = gameState.score;
 	if (gameState.isPaused === true) {
 		this.elemGameContainer.classList.add('paused');
+		return;
 	} else {
 		this.elemGameContainer.classList.remove('paused');
 	}
 
-	this.elemNextTetrimino.classList.remove( "I", "O", "T", "S", "Z", "J", "L" );
+	if (gameState.stateId === STATE_GAME_OVER) {
+		this.elemGameContainer.classList.add('game-over');
+		return;
+	} else {
+		this.elemGameContainer.classList.remove('game-over');
+	}
 
+	this.elemScoreContainer.innerText = gameState.score;
+	this.elemNextTetrimino.classList.remove( "I", "O", "T", "S", "Z", "J", "L" );
 	this.elemNextTetrimino.classList.add(gameState.upcomingTetriminoTypes[0]);
 
 	this._cleanupMatrix(this.matrix, this.rowSize, this.colSize);
@@ -1096,13 +1108,28 @@ function GameEngine(
 	eventHubConstructor,
 	config
 ) {
-	this.gameState = new gameStateConstructor(
-		config.rowSize,
-		config.colSize,
-		config.elapsed
+
+	this.gameStateConstructor = gameStateConstructor;
+	this.rendererConstructor = rendererConstructor;
+	this.eventHubConstructor = eventHubConstructor;
+	this.config = config;
+
+	this._initialize();
+}
+
+GameEngine.prototype._initialize = function() {
+	this.gameState = new this.gameStateConstructor(
+		this.config.rowSize,
+		this.config.colSize,
+		this.config.elapsed
 	);
-	this.renderer = new rendererConstructor(config.rowSize, config.colSize);
-	this.eventHub = new eventHubConstructor(config.keyConfig);
+
+	this.renderer = new this.rendererConstructor(
+		this.config.rowSize,
+		this.config.colSize
+	);
+
+	this.eventHub = new this.eventHubConstructor(this.config.keyConfig);
 
 	this._run();
 }
@@ -1125,7 +1152,14 @@ GameEngine.prototype._handleEvents = function(ts) {
 				this.gameState.operateCurrentTetrimino('spin', gameEvent.data, ts);
 				break;
 			case 'setPauseStatus':
-				this.gameState.setPauseStatus(gameEvent.data, ts);
+				if (this.gameState.stateId === STATE_GAME_OVER) {
+					if (gameEvent.data === 'toggle') {
+						// Restart
+						this._initialize();
+					}
+				} else {
+					this.gameState.setPauseStatus(gameEvent.data, ts);
+				}
 		}
 	}
 }
@@ -1133,6 +1167,10 @@ GameEngine.prototype._handleEvents = function(ts) {
 GameEngine.prototype._loop = function(ts) {
 	this._handleEvents(ts);
 	this.gameState.update(ts);
+
+	// %%Todo. Performance issue.
+	// The rendering function runs every cycle
+	// even if the game state did not change.
 	this.renderer.render(this.gameState, ts);
 }
 
