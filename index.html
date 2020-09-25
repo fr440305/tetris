@@ -17,7 +17,6 @@ Reference: https://harddrop.com/wiki/Tetris_Wiki
 	display: grid;
 	max-width: 400px;
 	margin: 0 auto;
-	margin-top: 80px;
 	/* border: 1px solid green; */
 }
 #GameMatrix {
@@ -730,6 +729,14 @@ function Renderer(rowSize, colSize) {
 	this.elemNextTetrimino = document.getElementById('NextTetrimino');
 	let matrixSize = this.elemGameMatrix.dataset.matrixSize;
 	this.elemScoreContainer = document.getElementById('ScoreContainer');
+
+	// %%Todo. Ugly.
+	// The height of the game container is 450 px, fixed.
+	// The following line is for vertical centering the game container,
+	// so that player can put their finger in the right place easier.
+	//
+	// But it should be done by CSS, not JavaScript.
+	this.elemGameContainer.style.marginTop = (window.innerHeight/2 - 225).toString() + "px";
 
 	this.rowSize = rowSize;
 	this.colSize = colSize;
