@@ -224,7 +224,7 @@
 
 <script>
 
-// %%Bug. When the game is about to top-out,
+// %%Bug (Solved?). When the game is about to top-out,
 // and if we keep spining the last top
 // tetrimino, the tetrimino will not be locked down
 // and sometimes will disappeard. Weird bug.
@@ -570,6 +570,20 @@ GameState.prototype._spawnNewTetrimino = function(ts) {
 	for (let i = 0; i < TETRIMINOS[newTetriminoType].length; i++) {
 		this.currentTetrimino.mat[i] = TETRIMINOS[newTetriminoType][i];
 	}
+
+	if (
+		this._isOverlapped(
+			this.currentTetrimino,
+			this.matrixLockedTetriminos,
+			this.rowSize,
+			this.colSize
+		)
+	) {
+		// Spawn failed.
+		return false;
+	} else {
+		return true;
+	};
 }
 
 GameState.prototype._isGameOver = function() {
@@ -712,7 +726,11 @@ GameState.prototype.update = function(ts) {
 
 		if (ts - this.tsLastStateUpdate >= 500) {
 			logprint('Spawned. ' + ts);
-			this._spawnNewTetrimino(ts);
+			if (this._spawnNewTetrimino(ts) === false) {
+				// Spawn failed. Game over.
+				logprint('Spawn failed. Game Over. ' + ts);
+				this.stateId = STATE_GAME_OVER;
+			}
 		}
 
 	} else if (this.stateId === STATE_WAITING_FOR_ELIMINATION) {
@@ -721,7 +739,11 @@ GameState.prototype.update = function(ts) {
 			this.score += this._calculateEliminationScore(this._getFullRows());
 			this._removeFullRows(this._getFullRows());
 			logprint('Spawned. ' + ts);
-			this._spawnNewTetrimino(ts);
+			if (this._spawnNewTetrimino(ts) === false) {
+				// Spawn failed. Game over.
+				logprint('Spawn failed. Game Over. ' + ts);
+				this.stateId = STATE_GAME_OVER;
+			}
 		}
 
 	} else if (this.stateId === STATE_GAME_OVER) {
