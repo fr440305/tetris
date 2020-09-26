@@ -528,7 +528,8 @@ GameState.prototype._lockCurrentTetrimino = function(ts) {
 			let realR = this.currentTetrimino.r + Math.floor(i / tetriminoMatrixSize);
 			let realC = this.currentTetrimino.c + (i % tetriminoMatrixSize);
 			if (realR < 0) {
-				return;
+				//return;
+				continue;
 			}
 			this.matrixLockedTetriminos[realR][realC] = this.currentTetrimino.type;
 		}
