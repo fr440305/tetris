@@ -224,7 +224,7 @@
 
 <script>
 
-// %%Bug (Solved?). When the game is about to top-out,
+// %%Bug. When the game is about to top-out,
 // and if we keep spining the last top
 // tetrimino, the tetrimino will not be locked down
 // and sometimes will disappeard. Weird bug.
@@ -562,18 +562,20 @@ GameState.prototype._spawnNewTetrimino = function(ts) {
 	let newTetriminoType = this.upcomingTetriminoTypes.shift();
 	//logprint('sp ' + this.upcomingTetriminoTypes );
 
-	this.currentTetrimino.r = -1;
-	this.currentTetrimino.c = Math.floor(this.colSize / 2) - 1;
-	this.currentTetrimino.type = newTetriminoType;
+	let newTetrimino = {
+		r: (newTetriminoType === 'O') ? -2 : -1,
+		c: Math.floor(this.colSize / 2) - 1,
+		type: newTetriminoType,
+		mat: []
+	};
 
-	this.currentTetrimino.mat = [];
 	for (let i = 0; i < TETRIMINOS[newTetriminoType].length; i++) {
-		this.currentTetrimino.mat[i] = TETRIMINOS[newTetriminoType][i];
+		newTetrimino.mat[i] = TETRIMINOS[newTetriminoType][i];
 	}
 
 	if (
 		this._isOverlapped(
-			this.currentTetrimino,
+			newTetrimino,
 			this.matrixLockedTetriminos,
 			this.rowSize,
 			this.colSize
@@ -582,6 +584,7 @@ GameState.prototype._spawnNewTetrimino = function(ts) {
 		// Spawn failed.
 		return false;
 	} else {
+		this.currentTetrimino = newTetrimino;
 		return true;
 	};
 }
@@ -788,6 +791,8 @@ function Renderer(rowSize, colSize) {
 		}
 		this.elemGameMatrix.appendChild(rowDiv);
 	}
+
+	this.isRenderedOnceAfterGameOver = false;
 }
 
 Renderer.prototype._cleanupMatrix = function(mat, rowSize, colSize) {
@@ -893,7 +898,9 @@ Renderer.prototype.render = function(gameState, ts) {
 
 	if (gameState.stateId === STATE_GAME_OVER) {
 		this.elemGameContainer.classList.add('game-over');
-		return;
+		if (this.isRenderedOnceAfterGameOver === true) {
+			return;
+		}
 	} else {
 		this.elemGameContainer.classList.remove('game-over');
 	}
@@ -945,6 +952,13 @@ Renderer.prototype.render = function(gameState, ts) {
 				this.cells[r][c].classList.add('locked-' + cellContent);
 			}
 		}
+	}
+
+	if (
+		gameState.stateId === STATE_GAME_OVER &&
+		this.isRenderedOnceAfterGameOver === false
+	) {
+		this.isRenderedOnceAfterGameOver = true;
 	}
 }
 
