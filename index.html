@@ -224,11 +224,15 @@
 
 <script>
 
-// %%Bug. When the game is about to top-out,
+// %%Bug #1. When the game is about to top-out,
 // and if we keep spining the last top
 // tetrimino, the tetrimino will not be locked down
 // and sometimes will disappeard. Weird bug.
 // --wshtan, 7 Sep 2020.
+
+// %%Bug #2. Sometimes the blur event
+// won't be triggered at some mobile browsers.
+// --wshtan, 2 Sep 2020.
 
 "use strict";
 
@@ -1009,10 +1013,7 @@ EventHub.prototype._pushEvent = function(eventType, data) {
 EventHub.prototype._listen = function() {
 	let _this = this;
 
-	// %%Todo Bug: Sometimes the blur event
-	// won't be triggered at some mobile browsers.
-	// --wshtan, 2 Sep 2020.
-	//
+	// %%Bug #2.
 	window.addEventListener('blur', function() {
 		_this._pushEvent('setPauseStatus', 'pause');
 	});
