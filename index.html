@@ -15,6 +15,12 @@
 	- The Tetris Guideline
 -->
 
+<!-- TODO
+	- Change the elapsed time.
+	- Level-up.
+	- show help and configuration if state == PAUSED or GAME_OVER
+-->
+
 <html>
 <head>
 
@@ -203,7 +209,7 @@
 
 <body>
 
-<div id='GameContainer'>
+<div id='GameContainer'> <!-- GameContainer.classList :: gamestatus-->
 	<div id='GameMatrix' data-matrix-size='20x10'> </div>
 	<div id='SideBar'>
 		<div id='NextTetriminoWarpper'>
