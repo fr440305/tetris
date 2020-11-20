@@ -19,6 +19,7 @@
 	- Change the elapsed time.
 	- Level-up.
 	- show help and configuration if state == PAUSED or GAME_OVER
+	- add LocalStorage to save gamming progress and score history
 -->
 
 <html>
@@ -176,6 +177,7 @@
 	text-align: center;
 }
 
+/*
 #NextTetrimino.I::after { content: "I"; }
 #NextTetrimino.O::after { content: "O"; }
 #NextTetrimino.T::after { content: "T"; }
@@ -183,6 +185,15 @@
 #NextTetrimino.Z::after { content: "Z"; }
 #NextTetrimino.J::after { content: "J"; }
 #NextTetrimino.L::after { content: "L"; }
+*/
+
+#NextTetrimino.I { background: url("Tetromino_I.svg") no-repeat center; width: 20px; height: 20px; background-size: contain;}
+#NextTetrimino.O { background: url("Tetromino_O.svg") no-repeat center; width: 20px; height: 20px; background-size: contain;}
+#NextTetrimino.T { background: url("Tetromino_T.svg") no-repeat center; width: 20px; height: 20px; background-size: contain;}
+#NextTetrimino.S { background: url("Tetromino_S.svg") no-repeat center; width: 20px; height: 20px; background-size: contain;}
+#NextTetrimino.Z { background: url("Tetromino_Z.svg") no-repeat center; width: 20px; height: 20px; background-size: contain;}
+#NextTetrimino.J { background: url("Tetromino_J.svg") no-repeat center; width: 20px; height: 20px; background-size: contain;}
+#NextTetrimino.L { background: url("Tetromino_L.svg") no-repeat center; width: 20px; height: 20px; background-size: contain;}
 
 #BtnTogglePause {
 	text-align: center;
