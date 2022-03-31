@@ -1,0 +1,353 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<style>
+body { font: Aria; }
+/*# bootstrap-style classes: */
+.container { display: flex; flex-direction: column; }
+.row       { display: flex; flex-direction: row;    }
+/*# game-spec: */
+#app > .row {
+	justify-content: center;
+}
+#playfield > .row > div {
+	margin : 0;
+	padding: 0;
+	width : 18px;
+	height: 18px;
+}
+.next-tetrimino-panel > .row {
+	justify-content: center;
+}
+#next_tetrimino_grid > .row > div {
+	margin : 0;
+	padding: 0;
+	width : 8px;
+	height: 8px;
+}
+/*# debug: */
+div {
+	border: 1px solid;
+}
+</style>
+</head>
+<body>
+<div id="app" class="container">
+	<div class="row">
+		<div class="col">
+			<div id="playfield" class="container">
+				<div class="row"> <div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div> </div>
+				<div class="row"> <div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div> </div>
+				<div class="row"> <div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div> </div>
+				<div class="row"> <div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div> </div>
+				<div class="row"> <div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div> </div>
+				<div class="row"> <div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div> </div>
+				<div class="row"> <div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div> </div>
+				<div class="row"> <div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div> </div>
+				<div class="row"> <div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div> </div>
+				<div class="row"> <div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div> </div>
+				<div class="row"> <div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div> </div>
+				<div class="row"> <div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div> </div>
+				<div class="row"> <div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div> </div>
+				<div class="row"> <div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div> </div>
+				<div class="row"> <div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div> </div>
+				<div class="row"> <div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div> </div>
+				<div class="row"> <div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div> </div>
+				<div class="row"> <div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div> </div>
+				<div class="row"> <div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div> </div>
+				<div class="row"> <div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div> </div>
+			</div>
+		</div>
+		<div class="col">
+			<div class="container side-bar">
+				<div class="row">
+					<div class="col">
+						<div class="next-tetrimino-panel container">
+							<div class="row">Upcoming</div>
+							<div class="row">
+								<div class="col">
+									<div id="next_tetrimino_grid" class="container">
+										<div class="row"> <div></div><div></div><div></div><div></div> </div>
+										<div class="row"> <div></div><div></div><div></div><div></div> </div>
+										<div class="row"> <div></div><div></div><div></div><div></div> </div>
+										<div class="row"> <div></div><div></div><div></div><div></div> </div>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+				<div class="row">
+					<div class="col">
+						<div class="player-score">Score: <span id="player_score_text"></span></div>
+					</div>
+				</div>
+				<div class="row">
+					<div class="col">
+						<div class="btn" id="btn_pause">Pause</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
+<script>
+
+//# input
+
+function createInputManager(body) {
+	var userInput = ({
+		eventQueue: [],
+		keyboard: {
+			// pressed keys
+		},
+		touch: {
+			isTouching: false,
+			x: 0,
+			y: 0,
+			startX: 0,
+			startY: 0,
+			startSince: 0,
+		}
+	});
+	addEventListeners(userInput, body);
+	return userInput;
+};
+
+function addEventListeners(userInput, body) {
+};
+
+//# state
+
+function createState() {
+	return ({
+		t: 0,
+		world: {
+			playfieldRowSize: 20,
+			playfieldColSize: 10,
+			score: 0,
+			isPaused: false,
+			isOver: false,
+			currentTetrimino: {
+				r: 0,
+				c: 0,
+				type: 'Z',
+				matrix: Tetriminos['Z']
+			},
+			upcomingTetriminoTypes: [],
+			lockedGrid: [
+				['', '', '', '', '', '', '', '', '', ''],
+				['', '', '', '', '', '', '', '', '', ''],
+				['', '', '', '', '', '', '', '', '', ''],
+				['', '', '', '', '', '', '', '', '', ''],
+				['', '', '', '', '', '', '', '', '', ''],
+				['', '', '', '', '', '', '', '', '', ''],
+				['', '', '', '', '', '', '', '', '', ''],
+				['', '', '', '', '', '', '', '', '', ''],
+				['', '', '', '', '', '', '', '', '', ''],
+				['', '', '', '', '', '', '', '', '', ''],
+				['', '', '', '', '', '', '', '', '', ''],
+				['', '', '', '', '', '', '', '', '', ''],
+				['', '', '', '', '', '', '', '', '', ''],
+				['', '', '', '', '', '', '', '', '', ''],
+				['', '', '', '', '', '', '', '', '', ''],
+				['', '', '', '', '', '', '', '', '', ''],
+				['', '', '', '', '', '', '', '', '', ''],
+				['', '', '', '', '', '', '', '', '', ''],
+				['', '', '', '', '', '', '', '', '', ''],
+				['', '', '', '', '', '', '', '', '', '']
+			],
+		},
+		config: {
+			dropTimeDelta: 1000, // ms
+			keyMap: {
+
+			}
+		},
+		debug: {
+		}
+	});
+};
+
+var Tetriminos = {
+	I: [
+		0, 0, 0, 0,
+		1, 1, 1, 1,
+		0, 0, 0, 0,
+		0, 0, 0, 0
+	],
+	O: [
+		0, 0, 0, 0,
+		0, 1, 1, 0,
+		0, 1, 1, 0,
+		0, 0, 0, 0
+	],
+	T: [
+		0, 1, 0,
+		1, 1, 1,
+		0, 0, 0
+	],
+	S: [
+		0, 1, 1,
+		1, 1, 0,
+		0, 0, 0
+	],
+	Z: [
+		1, 1, 0,
+		0, 1, 1,
+		0, 0, 0
+	],
+	J: [
+		1, 0, 0,
+		1, 1, 1,
+		0, 0, 0
+	],
+	L: [
+		0, 0, 1,
+		1, 1, 1,
+		0, 0, 0
+	]
+};
+
+function pauseGame(state) {
+	state.world.isPause = true;
+}
+
+function resumeGame(state) {
+	state.world.isPaused = false;
+}
+
+function restartGame(state) {
+	// XXX TODO(wtan 2022-03-31)
+	return null;
+}
+
+function isGameOver(state) {
+	var cols = state.world.playfieldColSize;
+	var grid = state.world.lockedGrid;
+	var i;
+	for (i = 0; i < cols; i++) {
+		if (grid[0][i] !== '') {
+			return true;
+		}
+	}
+	return false;
+}
+
+function canCurrentTetriminoMoveToward(state, direction) {
+
+}
+
+function moveCurrentTetriminoToward(state, direction) {
+
+}
+
+function hardDropCurrentTetrimino(state) {
+
+}
+
+function canCurrentTetriminoSpinToward(state, isClockwise) {
+
+}
+
+function spinCurrentTetrimino(state, isClockwise) {
+
+}
+
+function getIndexesOfEliminableRows(state) {
+	var ret = [];
+	var grid = state.world.lockedGrid;
+	var rowSize = state.world.playfieldRowSize;
+	var colSize = state.world.playfieldColSize;
+	var shouldEliminate = true;
+	var r;
+	var c;
+	for (r = 0; r < rowSize; r++) {
+		shouldEliminate = true;
+		for (c = 0; c < colSize; c++) {
+			if (grid[r][c] === '') {
+				shouldEliminate = false;
+				break;
+			}
+		}
+		if (shouldEliminate) {
+			ret.push(r);
+		}
+	}
+	return ret;
+}
+
+function calculateEliminationScore(state) {
+	var indexes = getIndexesOfEliminableRows(state);
+	var i;
+	var j;
+	var tmp;
+	var bonus = 0;
+	// Sort from smaller index to larger index:
+	for (i = 0; i < indexes.length; i++) {
+		for (j = 0; j < indexes.length; j++) {
+			if (indexes[i] > indexes[j]) {
+				tmp = indexes[i];
+				indexes[i] = indexes[j];
+				indexes[j] = tmp;
+			}
+		}
+	}
+	// Calculate bonus due to continuation:
+	if (indexes.length === 4) {
+		bonus = 400;
+	} else {
+		for (i = 1; i < indexes.length; i++) {
+			if (indexes[i-1] + 1 === indexes[i]) {
+				bonus += 100;
+			}
+		}
+	}
+	return 100 * indexes.length + bonus;
+}
+
+function updateState(state, input, t) {
+	var q = [];  // internal queue
+	while (input.eventQueue.length !== 0) {
+		// read input...
+	}
+	if (state.world.isPaused === false && state.world.isOver === false) {
+		// update state...
+	}
+	state.t = t;
+};
+
+//# rendering
+
+function createRenderMemo() {
+	return ({
+		el: {
+		},
+		prevPlayfield: [],
+		currentPlayfield: [],
+	});
+}
+
+function renderState(state, memo, t) {
+	// ...
+};
+
+//# main
+
+(function () {
+	var inputManager = createInputManager(document.body);
+	var gameState  = createState();
+	var renderMemo = createRenderMemo();
+	var loop = function (t) {
+		updateState(gameState, inputManager, t);
+		renderState(gameState, renderMemo  , t);
+		window.requestAnimationFrame(loop);
+	};
+	loop(0);
+})();
+
+</script>
+</body>
+</html>
