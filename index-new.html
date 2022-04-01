@@ -4,10 +4,12 @@
 <meta charset="utf8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <style>
-body { font: Aria; }
+body { font-family: sans-serif; }
 /*# bootstrap-style classes: */
 .container { display: flex; flex-direction: column; }
 .row       { display: flex; flex-direction: row;    }
+.align-center   { align-items    : center; }
+.justify-center { justify-content: center; }
 /*# game-spec: */
 #app > .row {
 	justify-content: center;
@@ -18,24 +20,47 @@ body { font: Aria; }
 	width : 18px;
 	height: 18px;
 }
-.next-tetrimino-panel > .row {
-	justify-content: center;
-}
 #next_tetrimino_grid > .row > div {
 	margin : 0;
 	padding: 0;
 	width : 8px;
 	height: 8px;
 }
-/*# debug: */
-div {
-	border: 1px solid;
+.overlay {
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	margin: 0;
+	background: rgba(0, 0, 0, 0.25);
 }
+/*# init */
+.overlay {
+	display: none;
+}
+/*# debug: */
+div { border: 1px solid; }
 </style>
 </head>
 <body>
-<div id="app" class="container">
+<div id="pause_overlay" class="overlay container align-center justify-center">
+	<div class="row align-center justify-center">
+		<div class="col btn">Resume</div>
+	</div>
+</div>
+<div id="game_over_overlay" class="overlay container align-center justify-center">
 	<div class="row">
+		<div class="col btn">Restart</div>
+	</div>
+</div>
+<div id="app" class="container align-center ">
+	<div class="row justify-center ">
+		<div class="col">
+			<h2>- T E T R I S -</h2>
+		</div>
+	</div>
+	<div class="row justify-center">
 		<div class="col">
 			<div id="playfield" class="container">
 				<div class="row"> <div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div> </div>
@@ -66,7 +91,7 @@ div {
 					<div class="col">
 						<div class="next-tetrimino-panel container">
 							<div class="row">Upcoming</div>
-							<div class="row">
+							<div class="row justify-center">
 								<div class="col">
 									<div id="next_tetrimino_grid" class="container">
 										<div class="row"> <div></div><div></div><div></div><div></div> </div>
@@ -93,15 +118,20 @@ div {
 		</div>
 	</div>
 </div>
+<pre><code id="debug_input"></code></pre>
+<pre><code id="debug_state"></code></pre>
 <script>
 
 //# input
 
-function createInputManager(body) {
+function createInputManager() {
 	var userInput = ({
 		eventQueue: [],
 		keyboard: {
-			// pressed keys
+			// key of interests:
+			' ': false,
+			'W': false, 'A': false, 'S': false, 'D': false,
+			'H': false, 'J': false, 'K': false, 'L': false
 		},
 		touch: {
 			isTouching: false,
@@ -112,17 +142,35 @@ function createInputManager(body) {
 			startSince: 0,
 		}
 	});
-	addEventListeners(userInput, body);
+	addEventListeners(userInput);
 	return userInput;
 };
 
-function addEventListeners(userInput, body) {
+function addEventListeners(userInput) {
+	document.body.addEventListener('keydown', function (e) {
+		console.log(e);
+		var k  = e.key.toUpperCase();
+		if (userInput.keyboard.hasOwnProperty(k)) {
+			e.preventDefault();
+			userInput.eventQueue.push({type: 'KeyDown', data: k});
+			userInput.keyboard[k] = true;
+		}
+	});
+	document.body.addEventListener('keyup', function (e) {
+		console.log(e);
+		var k  = e.key.toUpperCase();
+		if (userInput.keyboard.hasOwnProperty(k)) {
+			e.preventDefault();
+			userInput.eventQueue.push({type: 'KeyUp', data: k});
+			userInput.keyboard[k] = false;
+		}
+	});
 };
 
 //# state
 
 function createState() {
-	return ({
+	var state = ({
 		t: 0,
 		world: {
 			playfieldRowSize: 20,
@@ -136,7 +184,7 @@ function createState() {
 				type: 'Z',
 				matrix: Tetriminos['Z']
 			},
-			upcomingTetriminoTypes: [],
+			upcomingTetriminoTypes: ['I'],
 			lockedGrid: [
 				['', '', '', '', '', '', '', '', '', ''],
 				['', '', '', '', '', '', '', '', '', ''],
@@ -159,70 +207,100 @@ function createState() {
 				['', '', '', '', '', '', '', '', '', ''],
 				['', '', '', '', '', '', '', '', '', '']
 			],
-		},
-		config: {
+			hardDropDestinationRow: 0,
 			dropTimeDelta: 1000, // ms
+			tLastSoftDrop: 0,
+			tLastFallen: 0,
+			tLastLocked: 0,
+		},
+		config: { difficulty: 0,
 			keyMap: {
-
+				'W': 'hard-drop',
+				'A': 'move-left',
+				'S': 'move-down',
+				'D': 'move-right',
+				'J': 'spin-clockwise',
+				'K': 'spin-counter-clockwise',
+				' ': 'pause-or-restart'
 			}
 		},
 		debug: {
 		}
 	});
+	updateHardDropDestinationRow(state);
+	return state;
 };
 
 var Tetriminos = {
 	I: [
-		0, 0, 0, 0,
-		1, 1, 1, 1,
-		0, 0, 0, 0,
-		0, 0, 0, 0
+		[0, 0, 0, 0],
+		[1, 1, 1, 1],
+		[0, 0, 0, 0],
+		[0, 0, 0, 0]
 	],
 	O: [
-		0, 0, 0, 0,
-		0, 1, 1, 0,
-		0, 1, 1, 0,
-		0, 0, 0, 0
+		[0, 0, 0, 0],
+		[0, 1, 1, 0],
+		[0, 1, 1, 0],
+		[0, 0, 0, 0]
 	],
 	T: [
-		0, 1, 0,
-		1, 1, 1,
-		0, 0, 0
+		[0, 1, 0],
+		[1, 1, 1],
+		[0, 0, 0]
 	],
 	S: [
-		0, 1, 1,
-		1, 1, 0,
-		0, 0, 0
+		[0, 1, 1],
+		[1, 1, 0],
+		[0, 0, 0]
 	],
 	Z: [
-		1, 1, 0,
-		0, 1, 1,
-		0, 0, 0
+		[1, 1, 0],
+		[0, 1, 1],
+		[0, 0, 0]
 	],
 	J: [
-		1, 0, 0,
-		1, 1, 1,
-		0, 0, 0
+		[1, 0, 0],
+		[1, 1, 1],
+		[0, 0, 0]
 	],
 	L: [
-		0, 0, 1,
-		1, 1, 1,
-		0, 0, 0
+		[0, 0, 1],
+		[1, 1, 1],
+		[0, 0, 0]
 	]
+};
+
+var TetriminoColors = {
+	I: 'cyan',
+	O: 'yellow',
+	T: 'purple',
+	S: 'green',
+	Z: 'red',
+	J: 'blue',
+	L: 'brown',
 };
 
 function pauseGame(state) {
 	state.world.isPause = true;
-}
+};
 
 function resumeGame(state) {
 	state.world.isPaused = false;
-}
+};
+
+function togglePauseState(state) {
+	if (state.world.isPaused === false) {
+		state.world.isPaused = true;
+	} else {
+		state.world.isPaused = false;
+	}
+};
 
 function restartGame(state) {
 	// XXX TODO(wtan 2022-03-31)
 	return null;
-}
+};
 
 function isGameOver(state) {
 	var cols = state.world.playfieldColSize;
@@ -234,27 +312,69 @@ function isGameOver(state) {
 		}
 	}
 	return false;
-}
+};
 
 function canCurrentTetriminoMoveToward(state, direction) {
-
-}
+	var tet = state.world.currentTetrimino;
+	// Offsets:
+	var nextOffR = tet.r + direction.r;
+	var nextOffC = tet.c + direction.c;
+	var translatedR;
+	var translatedC;
+	var r;
+	var c;
+	for (r = 0; r < tet.matrix.length; r++) {
+		for (c = 0; c < tet.matrix[r].length; c++) {
+			if (tet.matrix[r][c] === 1) {
+				translatedR = nextOffR + r;
+				translatedC = nextOffC + c;
+				// Check if translated{R, C} overlaped or overbound:
+				if (
+					translatedR < 0 || translatedR >= state.world.playfieldRowSize ||
+					translatedC < 0 || translatedC >= state.world.playfieldColSize
+				) {
+					// Overbound!
+					return false;
+				} else if (state.world.lockedGrid[translatedR][translatedC] !== '') {
+					// Overlap!
+					return false;
+				}
+			}
+		}
+	}
+	return true;
+};
 
 function moveCurrentTetriminoToward(state, direction) {
+	state.world.currentTetrimino.r += direction.r;
+	state.world.currentTetrimino.c += direction.c;
+};
 
-}
+function updateHardDropDestinationRow(state) {
+	var r;
+	var tet = state.world.currentTetrimino;
+	var rowSize = state.world.playfieldRowSize;
+	for (r = 0; r < rowSize; r++) {
+		if (!canCurrentTetriminoMoveToward(state, {r: r+1, c: 0})) {
+			break;
+		}
+	}
+	console.log('updateHardDropDestinationRow(): ' + r);
+	state.world.hardDropDestinationRow = tet.r + r;
+};
 
 function hardDropCurrentTetrimino(state) {
-
-}
+	// XXX NOTE(fr44 2022-03-31) hard drop position might not even exist!
+	state.world.currentTetrimino.r = state.world.hardDropDestinationRow;
+};
 
 function canCurrentTetriminoSpinToward(state, isClockwise) {
-
-}
+	return true;
+};
 
 function spinCurrentTetrimino(state, isClockwise) {
 
-}
+};
 
 function getIndexesOfEliminableRows(state) {
 	var ret = [];
@@ -277,7 +397,7 @@ function getIndexesOfEliminableRows(state) {
 		}
 	}
 	return ret;
-}
+};
 
 function calculateEliminationScore(state) {
 	var indexes = getIndexesOfEliminableRows(state);
@@ -306,15 +426,53 @@ function calculateEliminationScore(state) {
 		}
 	}
 	return 100 * indexes.length + bonus;
-}
+};
 
 function updateState(state, input, t) {
-	var q = [];  // internal queue
+	var dtSoftDrop = state.world.dropTimeDelta;
+	var leftDirection  = {r: 0, c: -1}
+	var rightDirection = {r: 0, c:  1}
+	var downDirection  = {r: 1, c:  0}; // default: down
+	var inputEvent;
+	// XXX TODO BUG (fr44 2022-03-31) should not alter state if it's paused.
 	while (input.eventQueue.length !== 0) {
-		// read input...
+		inputEvent = input.eventQueue.shift();
+		console.log('updateState(): inputEvent: ' + JSON.stringify(inputEvent));
+		if (inputEvent.type === 'KeyDown') {
+			if (state.config.keyMap[inputEvent.data] === 'pause-or-restart') {
+				console.log('updateState(): pause!');
+				if (state.world.isOver === false) {
+					togglePauseState(state);
+				}
+			} else if (state.config.keyMap[inputEvent.data] === 'move-left') {
+				if (canCurrentTetriminoMoveToward(state, leftDirection)) {
+					moveCurrentTetriminoToward(state, leftDirection);
+					updateHardDropDestinationRow(state);
+				}
+			} else if (state.config.keyMap[inputEvent.data] === 'move-right') {
+				if (canCurrentTetriminoMoveToward(state, rightDirection)) {
+					moveCurrentTetriminoToward(state, rightDirection);
+					updateHardDropDestinationRow(state);
+				}
+			} else if (state.config.keyMap[inputEvent.data] === 'move-down') {
+				if (canCurrentTetriminoMoveToward(state, downDirection)) {
+					moveCurrentTetriminoToward(state, downDirection);
+				}
+			} else if (state.config.keyMap[inputEvent.data] === 'hard-drop') {
+				hardDropCurrentTetrimino(state);
+			} // TODO: else ...
+		}
 	}
 	if (state.world.isPaused === false && state.world.isOver === false) {
 		// update state...
+		if (t - state.world.tLastSoftDrop > dtSoftDrop) {
+			if (canCurrentTetriminoMoveToward(state, downDirection)) {
+				moveCurrentTetriminoToward(state, downDirection);
+				state.world.tLastSoftDrop = t;
+			} else { // fallen
+				//console.log('updateState(): fallen!');
+			}
+		}
 	}
 	state.t = t;
 };
@@ -322,27 +480,95 @@ function updateState(state, input, t) {
 //# rendering
 
 function createRenderMemo() {
-	return ({
+	var memo = {
 		el: {
+			playfield: (
+				Array
+					.from(document.querySelector('#playfield').children)
+					.map(function (e) { return Array.from(e.children) })
+			),
+			nextTetriminoGrid: (
+				Array
+					.from(document.querySelector('#next_tetrimino_grid').children)
+					.map(function (e) { return Array.from(e.children) })
+			),
+			pauseOverlay: document.querySelector('#pause_overlay'),
+			restartOverlay: document.querySelector('#game_over_overlay'),
+			score: document.querySelector('#player_score_text'),
+			btnPauseOrRestart: document.querySelector('#btn_pause')
 		},
 		prevPlayfield: [],
 		currentPlayfield: [],
-	});
-}
+	};
+	console.log(memo.el.playfield);
+	return memo;
+};
 
 function renderState(state, memo, t) {
-	// ...
+	var r;
+	var c;
+	var tet        = state.world.currentTetrimino;
+	var nextType   = state.world.upcomingTetriminoTypes[0];
+	var nextMatrix = Tetriminos[nextType];
+	// Paused?
+	if (state.world.isPaused === true) {
+		memo.el.pauseOverlay.style.display = 'block';
+		return;
+	} else {
+		memo.el.pauseOverlay.style.display = 'none';
+	}
+	// Clean the playfield:
+	for (r = 0; r < state.world.playfieldRowSize; r++) {
+		for (c = 0; c < state.world.playfieldColSize; c++) {
+			memo.el.playfield[r][c].style.background = 'white';
+		}
+	}
+	// Draw current tetrimino:
+	for (r = 0; r < tet.matrix.length; r++) {
+		for (c = 0; c < tet.matrix[r].length; c++) {
+			if (tet.matrix[r][c] === 1) {
+				memo.el.playfield[tet.r + r][tet.c + c].style.background = TetriminoColors[tet.type];
+			}
+		}
+	}
+	// Draw hard drop hint:
+	for (r = 0; r < tet.matrix.length; r++) {
+		for (c = 0; c < tet.matrix[r].length; c++) {
+			if (tet.matrix[r][c] !== 0) {
+				memo.el.playfield[state.world.hardDropDestinationRow + r][tet.c + c].style.background = 'grey';
+			}
+		}
+	}
+	// Draw upcoming tetrimino:
+	if (nextMatrix === undefined) {
+		// err:
+		console.log('err: renderState(): upcomingTetriminoMatrix undefined');
+	} else {
+		for (r = 0; r < nextMatrix.length; r++) {
+			for (c = 0; c < nextMatrix[r].length; c++) {
+				if (nextMatrix[r][c] === 1) {
+					memo.el.nextTetriminoGrid[r][c].style.background = TetriminoColors[nextType];
+				}
+			}
+		}
+	}
+	// Display score:
+	memo.el.score.textContent = state.world.score;
 };
 
 //# main
 
 (function () {
-	var inputManager = createInputManager(document.body);
-	var gameState  = createState();
-	var renderMemo = createRenderMemo();
+	var inputManager = createInputManager();
+	var gameState    = createState();
+	var renderMemo   = createRenderMemo();
+	var debugInput   = document.getElementById('debug_input');
+	var debugState   = document.getElementById('debug_state');
 	var loop = function (t) {
 		updateState(gameState, inputManager, t);
 		renderState(gameState, renderMemo  , t);
+		debugInput.textContent = JSON.stringify(inputManager);
+		debugState.textContent = JSON.stringify(gameState);
 		window.requestAnimationFrame(loop);
 	};
 	loop(0);
