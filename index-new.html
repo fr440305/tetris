@@ -10,6 +10,7 @@ body { font-family: sans-serif; }
 .row            { display: flex; flex-direction: row;    }
 .align-center   { align-items    : center; }
 .justify-center { justify-content: center; }
+.btn { border-radius: 5px; background: black; color: white; padding: 8px;}
 /*# game-spec: */
 #app > .row {
 	justify-content: center;
@@ -329,18 +330,6 @@ function restartGame(state) {
 	return null;
 };
 
-function isGameOver(state) {
-	var cols = state.world.playfieldColSize;
-	var grid = state.world.lockedGrid;
-	var i;
-	for (i = 0; i < cols; i++) {
-		if (grid[0][i] !== '') {
-			return true;
-		}
-	}
-	return false;
-};
-
 function canCurrentTetriminoMoveToward(state, direction) {
 	var tet = state.world.currentTetrimino;
 	// Offsets:
@@ -414,11 +403,69 @@ function lockCurrentTetrimino(state) {
 }
 
 function canCurrentTetriminoSpinToward(state, isClockwise) {
+	var tet = state.world.currentTetrimino;
+	var len = (tet.type === 'I' || tet.type === 'O') ? 4 : 3;
+	var nextMatrix = Array(len).fill(0).map(function (e) { return Array(len).fill(0) });
+	var r;
+	var c;
+	var translatedR;
+	var translatedC;
+	if (isClockwise) {
+		for (r = 0; r < len; r++) {
+			for (c = 0; c < len; c++) {
+				nextMatrix[r][c] = tet.matrix[len-1-c][r];
+			}
+		}
+	} else {
+		for (r = 0; r < len; r++) {
+			for (c = 0; c < len; c++) {
+				nextMatrix[r][c] = tet.matrix[c][len-1-r];
+			}
+		}
+	}
+	for (r = 0; r < len; r++) {
+		for (c = 0; c < len; c++) {
+			if (nextMatrix[r][c] === 1) {
+				translatedR = tet.r + r;
+				translatedC = tet.c + c;
+				if (
+					translatedR < 0 || translatedR >= state.world.playfieldRowSize ||
+					translatedC < 0 || translatedC >= state.world.playfieldColSize
+				) {
+					// Overbound:
+					return false;
+				} else if (state.world.lockedGrid[translatedR][translatedC] !== '') {
+					// Overlap:
+					return false;
+				}
+			}
+		}
+	}
 	return true;
 };
 
-function spinCurrentTetrimino(state, isClockwise) {
-
+function spinCurrentTetriminoToward(state, isClockwise) {
+	var tet = state.world.currentTetrimino;
+	var len = (tet.type === 'I' || tet.type === 'O') ? 4 : 3;
+	var nextMatrix = Array(len).fill(0).map(
+		function (e) { return Array(len).fill(0) }
+	);
+	var r;
+	var c;
+	if (isClockwise) {
+		for (r = 0; r < len; r++) {
+			for (c = 0; c < len; c++) {
+				nextMatrix[r][c] = tet.matrix[len-1-c][r];
+			}
+		}
+	} else {
+		for (r = 0; r < len; r++) {
+			for (c = 0; c < len; c++) {
+				nextMatrix[r][c] = tet.matrix[c][len-1-r];
+			}
+		}
+	}
+	tet.matrix = nextMatrix;
 };
 
 function getIndexesOfEliminableRows(state) {
@@ -473,23 +520,43 @@ function calculateEliminationScore(state) {
 	return 100 * indexes.length + bonus;
 };
 
+function canSpawnTetrimino(state) {
+	var nextType = state.world.upcomingTetriminoTypes[0];
+	var matrix = Tetriminos[nextType];
+	var offR = 0;
+	var offC = 3;
+	var r;
+	var c;
+	for (r = 0; r < matrix.length; r++) {
+		for (c = 0; c < matrix[r].length; c++) {
+			if (matrix[r][c] === 1) {
+				if (state.world.lockedGrid[offR + r][offC + c] !== '') {
+					return false;
+				}
+			}
+		}
+	}
+	return true;
+};
+
 function spawnTetrimino(state) {
-	var nextTetriminoType = state.world.upcomingTetriminoTypes.shift();
+	var nextTetriminoType = (
+		state.world.upcomingTetriminoTypes.shift()
+	);
 	var sequence = ['I', 'O', 'T', 'S', 'Z', 'J', 'L'];
+	var tet = state.world.currentTetrimino;
 	var i;
 	var j;
-	//var shouldSwap;
 	var tmp;
 	// Spawn:
-	state.world.currentTetrimino.type = nextTetriminoType;
-	state.world.currentTetrimino.matrix = Tetriminos[nextTetriminoType];
-	state.world.currentTetrimino.r = 0;
-	state.world.currentTetrimino.c = 3;
+	tet.type = nextTetriminoType;
+	tet.matrix = Tetriminos[nextTetriminoType];
+	tet.r = 0;
+	tet.c = 3;
 	// Prepare for next use:
 	if (state.world.upcomingTetriminoTypes.length === 0) {
 		for (i = 0; i < sequence.length; i++) {
 			for (j = 0; j < i; j++) {
-				//shouldSwap = Math.random();
 				if (Math.random() > 0.5) {
 					tmp         = sequence[i];
 					sequence[i] = sequence[j];
@@ -507,54 +574,70 @@ function updateState(state, input, t) {
 	var leftDirection  = {r: 0, c: -1}
 	var rightDirection = {r: 0, c:  1}
 	var downDirection  = {r: 1, c:  0}; // default: down
-	var inputEvent;
 	// Determine current state:
-	//var isFalling = t > state.world.tLastSpawned && state.world.tLastSpawned > state.world.tLastFallen;
-	var isFalling = t > state.world.tLastSpawned && state.world.tLastSpawned > state.world.tLastLocked;
-	//var isFallenButNotLockedYet  = state.world.tLastFallen > state.world.tLastLocked;
-	var isLockedButNotSpawnedYet = t > state.world.tLastLocked && state.world.tLastLocked > state.world.tLastSpawned;
+	var isFalling = (
+		t > state.world.tLastSpawned &&
+		state.world.tLastSpawned > state.world.tLastLocked
+	);
+	var isLockedButNotSpawnedYet = (
+		t > state.world.tLastLocked &&
+		state.world.tLastLocked > state.world.tLastSpawned
+	);
 	var canChangeCurrentTetrimino = (
 		// XXX
 		isFalling &&
 		!state.world.isPaused &&
 		!state.world.isGameOver
 	);
+	var inputEvent;
+	var operation;
 	// Read user input and update tet position:
 	while (input.eventQueue.length !== 0) {
 		inputEvent = input.eventQueue.shift();
 		console.log('updateState(): inputEvent: ' + JSON.stringify(inputEvent));
 		if (inputEvent.type === 'KeyDown') {
-			if (state.config.keyMap[inputEvent.data] === 'pause-or-restart') {
+			operation = state.config.keyMap[inputEvent.data];
+			if (operation === 'pause-or-restart') {
 				console.log('updateState(): pause!');
 				if (state.world.isGameOver === false) {
 					togglePauseState(state);
 				}
-			} else if (state.config.keyMap[inputEvent.data] === 'move-left') {
+			} else if (operation === 'move-left') {
 				if (canChangeCurrentTetrimino) {
 					if (canCurrentTetriminoMoveToward(state, leftDirection)) {
 						moveCurrentTetriminoToward(state, leftDirection);
 						updateHardDropDestinationRow(state);
 					}
 				}
-			} else if (state.config.keyMap[inputEvent.data] === 'move-right') {
+			} else if (operation === 'move-right') {
 				if (canChangeCurrentTetrimino) {
 					if (canCurrentTetriminoMoveToward(state, rightDirection)) {
 						moveCurrentTetriminoToward(state, rightDirection);
 						updateHardDropDestinationRow(state);
 					}
 				}
-			} else if (state.config.keyMap[inputEvent.data] === 'move-down') {
+			} else if (operation === 'move-down') {
 				if (canChangeCurrentTetrimino) {
 					if (canCurrentTetriminoMoveToward(state, downDirection)) {
 						moveCurrentTetriminoToward(state, downDirection);
 					}
 				}
-			} else if (state.config.keyMap[inputEvent.data] === 'hard-drop') {
+			} else if (operation === 'hard-drop') {
 				if (canChangeCurrentTetrimino) {
 					hardDropCurrentTetrimino(state);
-					lockCurrentTetrimino(state);
+					lockCurrentTetrimino(state); // lock immediately
 				}
-			} // TODO: else ...
+			} else if (operation === 'spin-clockwise') {
+				if (canCurrentTetriminoSpinToward(state, true)) {
+					spinCurrentTetriminoToward(state, true);
+					updateHardDropDestinationRow(state);
+				}
+			} else if (operation === 'spin-counter-clockwise') {
+				if (canCurrentTetriminoSpinToward(state, false)) {
+					spinCurrentTetriminoToward(state, false);
+					updateHardDropDestinationRow(state);
+				}
+			}
 		} else if (inputEvent.type === 'BtnClick') {
 			if (inputEvent.data === 'Pause') {
 				console.log('updateState(): pause?!');
@@ -581,9 +664,17 @@ function updateState(state, input, t) {
 		}
 	} else if (isLockedButNotSpawnedYet) {
 		// XXX TODO(fr44 2022-04-01) check elimination
-		spawnTetrimino(state);
-		updateHardDropDestinationRow(state);
+		if (canSpawnTetrimino(state)) {
+			spawnTetrimino(state);
+			updateHardDropDestinationRow(state);
+		} else {
+			// Cannot spawn => Game over!
+			state.world.isGameOver = true;
+		}
+	} else {
+		// ... ???
 	}
+
 	state.t = t;
 };
 
@@ -627,6 +718,13 @@ function renderState(state, memo, t) {
 	} else {
 		memo.el.pauseOverlay.style.display = 'none';
 	}
+	// Game Over?
+	if (state.world.isGameOver === true) {
+		memo.el.restartOverlay.style.display = 'block';
+		return;
+	} else {
+		memo.el.restartOverlay.style.display = 'none';
+	}
 	// Clean the playfield:
 	for (r = 0; r < state.world.playfieldRowSize; r++) {
 		for (c = 0; c < state.world.playfieldColSize; c++) {
@@ -639,19 +737,19 @@ function renderState(state, memo, t) {
 			memo.el.nextTetriminoGrid[r][c].style.background = 'white';
 		}
 	}
-	// Draw current tetrimino:
-	for (r = 0; r < tet.matrix.length; r++) {
-		for (c = 0; c < tet.matrix[r].length; c++) {
-			if (tet.matrix[r][c] === 1) {
-				memo.el.playfield[tet.r + r][tet.c + c].style.background = TetriminoColors[tet.type];
-			}
-		}
-	}
 	// Draw hard drop hint:
 	for (r = 0; r < tet.matrix.length; r++) {
 		for (c = 0; c < tet.matrix[r].length; c++) {
 			if (tet.matrix[r][c] !== 0) {
 				memo.el.playfield[state.world.hardDropDestinationRow + r][tet.c + c].style.background = 'grey';
+			}
+		}
+	}
+	// Draw current tetrimino:
+	for (r = 0; r < tet.matrix.length; r++) {
+		for (c = 0; c < tet.matrix[r].length; c++) {
+			if (tet.matrix[r][c] === 1) {
+				memo.el.playfield[tet.r + r][tet.c + c].style.background = TetriminoColors[tet.type];
 			}
 		}
 	}
