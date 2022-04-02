@@ -6,11 +6,16 @@
 <style>
 body { font-family: sans-serif; }
 /*# bootstrap-style classes: */
-.container      { display: flex; flex-direction: column; }
-.row            { display: flex; flex-direction: row;    }
+.container { display: flex; flex-direction: column; }
+.row       { display: flex; flex-direction: row;    }
 .align-center   { align-items    : center; }
 .justify-center { justify-content: center; }
-.btn { border-radius: 5px; background: black; color: white; padding: 8px;}
+.btn {
+	border-radius: 5px;
+	background: black;
+	color: white;
+	padding: 8px;
+}
 /*# game-spec: */
 #app > .row {
 	justify-content: center;
@@ -52,7 +57,7 @@ body { font-family: sans-serif; }
 	display: none;
 }
 /*# debug: */
-div { /* border: 1px solid;*/ }
+div { border: 1px solid; }
 </style>
 </head>
 <body>
@@ -151,7 +156,9 @@ function createInputManager() {
 			y: 0,
 			startX: 0,
 			startY: 0,
-			startSince: 0,
+			prevX: 0,
+			prevY: 0,
+			//startSince: 0,
 		}
 	});
 	addEventListeners(userInput);
@@ -189,12 +196,26 @@ function addEventListeners(userInput) {
 	});
 	playfieldEl.addEventListener('touchstart', function (e) {
 		e.preventDefault();
+		//console.log(e);
+		var x = e.touches[0].clientX;
+		var y = e.touches[0].clientY;
+		userInput.touch.startX = x;
+		userInput.touch.startY = y;
+		userInput.touch.x      = x;
+		userInput.touch.y      = y;
+		userInput.touch.isTouching = true;
 	});
 	playfieldEl.addEventListener('touchmove', function (e) {
+		// XXX TODO
 		e.preventDefault();
+		//console.log(e);
+		userInput.touch.x = e.touches[0].clientX;
+		userInput.touch.y = e.touches[0].clientY;
 	});
 	playfieldEl.addEventListener('touchend', function (e) {
+		// XXX TODO
 		e.preventDefault();
+		userInput.touch.isTouching = false;
 	});
 	pauseBtn.addEventListener('click', function () {
 		userInput.eventQueue.push({type: 'BtnClick', data: 'Pause'});
@@ -843,13 +864,13 @@ function renderState(state, memo, t) {
 	var inputManager = createInputManager();
 	var gameState    = createState();
 	var renderMemo   = createRenderMemo();
-	var debugInput   = document.getElementById('debug_input');
-	var debugState   = document.getElementById('debug_state');
+	//var debugInput   = document.getElementById('debug_input');
+	//var debugState   = document.getElementById('debug_state');
 	var loop = function (t) {
 		updateState(gameState, inputManager, t);
 		renderState(gameState, renderMemo  , t);
-		debugInput.textContent = JSON.stringify(inputManager);
-		debugState.textContent = JSON.stringify(gameState);
+		//debugInput.textContent = JSON.stringify(inputManager);
+		//debugState.textContent = JSON.stringify(gameState);
 		window.requestAnimationFrame(loop);
 	};
 	loop(0);
