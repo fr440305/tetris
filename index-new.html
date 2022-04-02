@@ -236,6 +236,7 @@ function addEventListeners(userInput) {
 function createState() {
 	var state = {
 		t: 0,
+		shouldRerender: true,
 		world: {
 			playfieldRowSize: 20,
 			playfieldColSize: 10,
@@ -499,19 +500,9 @@ function spinCurrentTetriminoToward(state, isClockwise) {
 function hasEliminableRows(state) {
 	var grid    = state.world.lockedGrid;
 	var rowSize = state.world.playfieldRowSize;
-	var colSize = state.world.playfieldColSize;
 	var r;
-	var c;
-	var shouldEliminate = true;
 	for (r = 0; r < rowSize; r++) {
-		shouldEliminate = true;
-		for (c = 0; c < colSize; c++) {
-			if (grid[r][c] === '') {
-				shouldEliminate = false;
-				break;
-			}
-		}
-		if (shouldEliminate) {
+		if (!grid[r].includes('')) {
 			return true;
 		}
 	}
@@ -522,22 +513,13 @@ function getIndexesOfEliminableRows(state) {
 	var ret = [];
 	var grid = state.world.lockedGrid;
 	var rowSize = state.world.playfieldRowSize;
-	var colSize = state.world.playfieldColSize;
-	var shouldEliminate = true;
 	var r;
-	var c;
 	for (r = 0; r < rowSize; r++) {
-		shouldEliminate = true;
-		for (c = 0; c < colSize; c++) {
-			if (grid[r][c] === '') {
-				shouldEliminate = false;
-				break;
-			}
-		}
-		if (shouldEliminate) {
+		if (!grid[r].includes('')) {
 			ret.push(r);
 		}
 	}
+	console.log(ret);
 	return ret;
 };
 
@@ -572,18 +554,15 @@ function calculateEliminationScore(state) {
 
 function eliminateRowsInLockedGrid(state) {
 	var indexes = getIndexesOfEliminableRows(state);
-	var indexSet = new Set(indexes);
 	var newLockedGrid = [];
 	var rowSize = state.world.playfieldRowSize;
 	var r;
 	console.log(indexes.length);
 	for (r = 0; r < indexes.length; r++) {
-		console.log(r);
 		newLockedGrid.push(Array(10).fill(''));
 	}
 	for (r = 0; r < rowSize; r++) {
-		if (!indexSet.has(r)) {
-			console.log(r);
+		if (!indexes.includes(r)) {
 			newLockedGrid.push(state.world.lockedGrid[r]);
 		}
 	}
@@ -641,7 +620,6 @@ function spawnTetrimino(state) {
 }
 
 function updateState(state, input, t) {
-	var dtSoftDrop = state.world.dropWaitingTime;
 	var leftDirection  = {r: 0, c: -1}
 	var rightDirection = {r: 0, c:  1}
 	var downDirection  = {r: 1, c:  0}; // default: down
@@ -655,13 +633,14 @@ function updateState(state, input, t) {
 		state.world.tLastLocked > state.world.tLastSpawned
 	);
 	var canChangeCurrentTetrimino = (
-		// XXX
 		isFalling &&
 		!state.world.isPaused &&
 		!state.world.isGameOver
 	);
 	var inputEvent;
 	var operation;
+	// Rendering control: change shouldRerender to true only when necessary.
+	state.shouldRerender = false;
 	// Read user input and update tet position:
 	while (input.eventQueue.length !== 0) {
 		inputEvent = input.eventQueue.shift();
@@ -672,12 +651,14 @@ function updateState(state, input, t) {
 				console.log('updateState(): pause!');
 				if (state.world.isGameOver === false) {
 					togglePauseState(state);
+					state.shouldRerender = true;
 				}
 			} else if (operation === 'move-left') {
 				if (canChangeCurrentTetrimino) {
 					if (canCurrentTetriminoMoveToward(state, leftDirection)) {
 						moveCurrentTetriminoToward(state, leftDirection);
 						updateHardDropDestinationRow(state);
+						state.shouldRerender = true;
 					}
 				}
 			} else if (operation === 'move-right') {
@@ -685,51 +666,61 @@ function updateState(state, input, t) {
 					if (canCurrentTetriminoMoveToward(state, rightDirection)) {
 						moveCurrentTetriminoToward(state, rightDirection);
 						updateHardDropDestinationRow(state);
+						state.shouldRerender = true;
 					}
 				}
 			} else if (operation === 'move-down') {
 				if (canChangeCurrentTetrimino) {
 					if (canCurrentTetriminoMoveToward(state, downDirection)) {
 						moveCurrentTetriminoToward(state, downDirection);
+						state.shouldRerender = true;
 					}
 				}
 			} else if (operation === 'hard-drop') {
 				if (canChangeCurrentTetrimino) {
 					hardDropCurrentTetrimino(state);
 					lockCurrentTetrimino(state); // lock immediately
+					state.shouldRerender = true;
 				}
 			} else if (operation === 'spin-clockwise') {
 				if (canCurrentTetriminoSpinToward(state, true)) {
 					spinCurrentTetriminoToward(state, true);
 					updateHardDropDestinationRow(state);
+					state.shouldRerender = true;
 				}
 			} else if (operation === 'spin-counter-clockwise') {
 				if (canCurrentTetriminoSpinToward(state, false)) {
 					spinCurrentTetriminoToward(state, false);
 					updateHardDropDestinationRow(state);
+					state.shouldRerender = true;
 				}
 			}
 		} else if (inputEvent.type === 'BtnClick') {
 			if (inputEvent.data === 'Pause') {
 				console.log('updateState(): pause?!');
 				pauseGame(state);
+				state.shouldRerender = true;
 				console.log('updateState(): pause: ' + state.world.isPaused);
 			} else if (inputEvent.data === 'Resume') {
 				resumeGame(state);
+				state.shouldRerender = true;
 			} else if (inputEvent.data === 'Restart') {
-				// ...
+				restartGame(state);
+				state.shouldRerender = true;
 			}
 		}
 	}
 	if (canChangeCurrentTetrimino) {
 		// Soft drop:
-		if (t - state.world.tLastSoftDrop > dtSoftDrop) {
+		if (t - state.world.tLastSoftDrop > state.world.dropWaitingTime) {
 			if (canCurrentTetriminoMoveToward(state, downDirection)) {
 				moveCurrentTetriminoToward(state, downDirection);
+				state.shouldRerender = true;
 				state.world.tLastSoftDrop = t;
 			} else {
 				// fallen:
 				lockCurrentTetrimino(state);
+				state.shouldRerender = true;
 			}
 		}
 	} else if (isLockedButNotSpawnedYet) {
@@ -738,14 +729,17 @@ function updateState(state, input, t) {
 				state.world.score += calculateEliminationScore(state);
 				eliminateRowsInLockedGrid(state);
 				state.world.hasEliminableRows = false;
+				state.shouldRerender = true;
 			}
 		} else {
 			if (canSpawnTetrimino(state)) {
 				spawnTetrimino(state);
 				updateHardDropDestinationRow(state);
+				state.shouldRerender = true;
 			} else {
 				// Cannot spawn => Game over!
 				state.world.isGameOver = true;
+				state.shouldRerender = true;
 			}
 		}
 	} else {
@@ -780,14 +774,17 @@ function createRenderMemo() {
 	};
 	console.log(memo.el.playfield);
 	return memo;
-};
-
+}; 
 function renderState(state, memo, t) {
 	var tet = state.world.currentTetrimino;
 	var nextType = state.world.upcomingTetriminoTypes[0];
 	var nextMatrix = Tetriminos[nextType];
 	var r;
 	var c;
+	// Should rerender?
+	if (t !== 0 && !state.shouldRerender) {
+		return;
+	}
 	// Paused?
 	if (state.world.isPaused === true) {
 		memo.el.pauseOverlay.style.display = 'block';
@@ -839,18 +836,10 @@ function renderState(state, memo, t) {
 		}
 	}
 	// Draw upcoming tetrimino:
-	if (nextMatrix === undefined) {
-		// err:
-		// XXX (fr44 2022-04-01)
-		// Under what circumstances will the control flow enter
-		// this branch?
-		console.log('err: renderState(): upcomingTetriminoMatrix undefined');
-	} else {
-		for (r = 0; r < nextMatrix.length; r++) {
-			for (c = 0; c < nextMatrix[r].length; c++) {
-				if (nextMatrix[r][c] === 1) {
-					memo.el.nextTetriminoGrid[r][c].style.background = TetriminoColors[nextType];
-				}
+	for (r = 0; r < nextMatrix.length; r++) {
+		for (c = 0; c < nextMatrix[r].length; c++) {
+			if (nextMatrix[r][c] === 1) {
+				memo.el.nextTetriminoGrid[r][c].style.background = TetriminoColors[nextType];
 			}
 		}
 	}
@@ -864,13 +853,9 @@ function renderState(state, memo, t) {
 	var inputManager = createInputManager();
 	var gameState    = createState();
 	var renderMemo   = createRenderMemo();
-	//var debugInput   = document.getElementById('debug_input');
-	//var debugState   = document.getElementById('debug_state');
 	var loop = function (t) {
 		updateState(gameState, inputManager, t);
 		renderState(gameState, renderMemo  , t);
-		//debugInput.textContent = JSON.stringify(inputManager);
-		//debugState.textContent = JSON.stringify(gameState);
 		window.requestAnimationFrame(loop);
 	};
 	loop(0);
