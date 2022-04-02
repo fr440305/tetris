@@ -42,6 +42,11 @@ body { font-family: sans-serif; }
 .overlay .btn {
 	z-index: 100;
 }
+#playfield {
+	margin-right: 10px;
+	border-radius: 5px;
+	border: 1px solid;
+}
 /*# init */
 .overlay {
 	display: none;
@@ -225,23 +230,22 @@ function createState() {
 			upcomingTetriminoTypes: [
 				'I', 'O', 'T', 'S', 'Z', 'J', 'L'
 			],
-			// XXX TODO(fr44 2022-04-01)
-			//  - Use Uint8Array to prevent unnecessary
-			//    object creation.
 			lockedGrid: Array(20).fill(0).map(
 				function (e) { return Array(10).fill('') }
 			),  // A 20x10 2d array, with all ''.
+			hasEliminableRows: false,
 			isHardDropAvailable: true, // false if no position.
 			hardDropDestinationRow: 0, // tbd
-			dropTimeDelta:  1000, // ms tLastRestart : -1,
+			eliminationWaitingTime: 500, // ms
+			dropWaitingTime     :  1000, // ms
+			tLastRestart : -1,
 			tLastSpawned :  0,
 			tLastSoftDrop: -1,
-			//tLastFallen  : -1,
 			tLastLocked  : -1,
 			tLastRestart : -1,
 		},
 		config: {
-			difficulty: 0, // will affect world.dropTimeDelta
+			difficulty: 0, // will affect world.dropWaitingTime
 			keyMap: {
 				'W': 'hard-drop',
 				'A': 'move-left',
@@ -367,7 +371,9 @@ function moveCurrentTetriminoToward(state, direction) {
 };
 
 function updateHardDropDestinationRow(state) {
-	// XXX TODO (fr44) isHardDropAvailable
+	// Don't have to consider the case when hard drop position is
+	// not available. Because it only time it would happened is that
+	// the game is over.
 	var r;
 	var tet = state.world.currentTetrimino;
 	var rowSize = state.world.playfieldRowSize;
@@ -399,6 +405,7 @@ function lockCurrentTetrimino(state) {
 			}
 		}
 	}
+	state.world.hasEliminableRows = hasEliminableRows(state);
 	state.world.tLastLocked = state.t;
 }
 
@@ -468,6 +475,28 @@ function spinCurrentTetriminoToward(state, isClockwise) {
 	tet.matrix = nextMatrix;
 };
 
+function hasEliminableRows(state) {
+	var grid    = state.world.lockedGrid;
+	var rowSize = state.world.playfieldRowSize;
+	var colSize = state.world.playfieldColSize;
+	var r;
+	var c;
+	var shouldEliminate = true;
+	for (r = 0; r < rowSize; r++) {
+		shouldEliminate = true;
+		for (c = 0; c < colSize; c++) {
+			if (grid[r][c] === '') {
+				shouldEliminate = false;
+				break;
+			}
+		}
+		if (shouldEliminate) {
+			return true;
+		}
+	}
+	return false;
+}
+
 function getIndexesOfEliminableRows(state) {
 	var ret = [];
 	var grid = state.world.lockedGrid;
@@ -520,6 +549,27 @@ function calculateEliminationScore(state) {
 	return 100 * indexes.length + bonus;
 };
 
+function eliminateRowsInLockedGrid(state) {
+	var indexes = getIndexesOfEliminableRows(state);
+	var indexSet = new Set(indexes);
+	var newLockedGrid = [];
+	var rowSize = state.world.playfieldRowSize;
+	var r;
+	console.log(indexes.length);
+	for (r = 0; r < indexes.length; r++) {
+		console.log(r);
+		newLockedGrid.push(Array(10).fill(''));
+	}
+	for (r = 0; r < rowSize; r++) {
+		if (!indexSet.has(r)) {
+			console.log(r);
+			newLockedGrid.push(state.world.lockedGrid[r]);
+		}
+	}
+	console.log(newLockedGrid);
+	state.world.lockedGrid = newLockedGrid;
+}
+
 function canSpawnTetrimino(state) {
 	var nextType = state.world.upcomingTetriminoTypes[0];
 	var matrix = Tetriminos[nextType];
@@ -570,7 +620,7 @@ function spawnTetrimino(state) {
 }
 
 function updateState(state, input, t) {
-	var dtSoftDrop = state.world.dropTimeDelta;
+	var dtSoftDrop = state.world.dropWaitingTime;
 	var leftDirection  = {r: 0, c: -1}
 	var rightDirection = {r: 0, c:  1}
 	var downDirection  = {r: 1, c:  0}; // default: down
@@ -651,25 +701,31 @@ function updateState(state, input, t) {
 		}
 	}
 	if (canChangeCurrentTetrimino) {
-		// update state...
+		// Soft drop:
 		if (t - state.world.tLastSoftDrop > dtSoftDrop) {
 			if (canCurrentTetriminoMoveToward(state, downDirection)) {
 				moveCurrentTetriminoToward(state, downDirection);
 				state.world.tLastSoftDrop = t;
-			} else { // fallen
-				//console.log('updateState(): fallen!');
-				//state.world.tLastFallen = t;
+			} else {
+				// fallen:
 				lockCurrentTetrimino(state);
 			}
 		}
 	} else if (isLockedButNotSpawnedYet) {
-		// XXX TODO(fr44 2022-04-01) check elimination
-		if (canSpawnTetrimino(state)) {
-			spawnTetrimino(state);
-			updateHardDropDestinationRow(state);
+		if (state.world.hasEliminableRows) {
+			if (t - state.world.tLastLocked > state.world.eliminationWaitingTime) {
+				state.world.score += calculateEliminationScore(state);
+				eliminateRowsInLockedGrid(state);
+				state.world.hasEliminableRows = false;
+			}
 		} else {
-			// Cannot spawn => Game over!
-			state.world.isGameOver = true;
+			if (canSpawnTetrimino(state)) {
+				spawnTetrimino(state);
+				updateHardDropDestinationRow(state);
+			} else {
+				// Cannot spawn => Game over!
+				state.world.isGameOver = true;
+			}
 		}
 	} else {
 		// ... ???
