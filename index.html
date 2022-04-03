@@ -22,7 +22,7 @@ body { font-family: sans-serif; }
 }
 /*# game-spec: */
 #app {
-	max-width: 500px;
+	max-width: 400px;
 	margin: 0 auto;
 }
 #app > .row {
@@ -60,8 +60,7 @@ body { font-family: sans-serif; }
 #playfield > .row > .active-T {
 	background-image: linear-gradient(to bottom right, white, purple);
 	border-top-color: white;
-	border-left-color: white;
-	border-bottom-color: purple;
+	border-left-color: white; border-bottom-color: purple;
 	border-right-color: purple;
 } #playfield > .row > .locked-T , .locked-T {
 	background: purple;
@@ -145,7 +144,7 @@ body { font-family: sans-serif; }
 	padding: 4px;
 }
 /*# init */
-.overlay {
+.overlay , #guidelines_panel , #settings_panel {
 	display: none;
 }
 /*# debug: */
@@ -210,7 +209,10 @@ div {/*border: 1px solid;*/}
 				</div>
 				<div class="row">
 					<div class="col fill fluid panel ma-4">
-						<div class="player-score justify-center text-center">Score: <span id="player_score_text"></span></div>
+						<div class="player-score justify-center text-center">
+							Score:   <span id="player_score_text"></span> <br/>
+							Highest: <span id="player_highest_score_text"></span>
+						</div>
 					</div>
 				</div>
 				<div class="row fluid">
@@ -220,10 +222,36 @@ div {/*border: 1px solid;*/}
 				</div>
 				<div class="row">
 					<div class="col fill fluid panel ma-4">
-						Mobile: <b>Drag</b> the finger through the playfield to move the current tetrimino.
-						<b>Tap</b> the playfield to rotate the current tetrimino counter-clockwise.
+						<b>Click `Pause`</b> above to pause the game and show guidelines.
 					</div>
 				</div>
+			</div>
+		</div>
+	</div>
+	<div id="guidelines_panel" class="row fluid justify-center">
+		<div class="col fill fluid">
+			<div class="container panel ma-4">
+				<h3 class="text-center">How to Play</h3>
+				<span>Default settings for <b>desktop</b> clients:</span>
+				<ul>
+					<li>Press <b>A, S, D</b> to control the shifting direction of the current tetrimino;</li>
+					<li><b>W</b> to hard-drop;</li>
+					<li><b>J, K</b> to rotate;</li>
+					<li><b>Space</b> to toggle pause.</li>
+				</ul>
+				<span>Default settings for <b>mobile</b> clients:</span>
+				<ul>
+					<li><b>Drag</b> the finger left or right to move the current tetrimino;</li>
+					<li><b>Tap</b> the playfield to rotate;</li>
+					<li>(The hard-drop feature is not supported at mobile devices);</li>
+				</ul>
+			</div>
+		</div>
+	</div>
+	<div id="settings_panel" class="row fluid justify-center text-center">
+		<div class="col fill fluid">
+			<div class="container panel ma-4">
+				<h3>Settings</h3>
 			</div>
 		</div>
 	</div>
@@ -383,6 +411,7 @@ function createState() {
 			playfieldRowSize: 20,
 			playfieldColSize: 10,
 			score: 0,
+			highestScore: 0,
 			isPaused: false,
 			isGameOver: false,
 			currentTetrimino: {
@@ -409,7 +438,8 @@ function createState() {
 			tLastRestart : -1,
 		},
 		config: {
-			difficulty: 0, // will affect world.dropWaitingTime
+			// The config.difficulty property will affect world.dropWaitingTime:
+			difficulty: 0,
 			keyMap: {
 				'W': 'hard-drop',
 				'A': 'move-left',
@@ -418,7 +448,10 @@ function createState() {
 				'J': 'spin-counter-clockwise',
 				'K': 'spin-clockwise',
 				' ': 'pause-or-restart'
-			}
+			},
+			// default: spin counter-clockwise when tapping:
+			shouldSpinClockwiseWhenTapping: false,
+			isDarkThemeEnabled: false,
 		},
 	};
 	updateHardDropDestinationRow(state);
@@ -828,7 +861,7 @@ function updateState(state, input, t) {
 				state.shouldRerender = true;
 			}
 		} else if (inputEvent.type === 'TouchTap') {
-			trySpinCurrentTetriminoToward(state, false);
+			trySpinCurrentTetriminoToward(state, state.config.shouldSpinClockwiseWhenTapping);
 		} else if (inputEvent.type === 'TouchMove') {
 			if (Math.abs(inputEvent.data.dy) > 2 * Math.abs(inputEvent.data.dx)) {
 				// Veritcal movement:
@@ -862,6 +895,9 @@ function updateState(state, input, t) {
 		if (state.world.hasEliminableRows) {
 			if (t - state.world.tLastLocked > state.world.eliminationWaitingTime) {
 				state.world.score += calculateEliminationScore(state);
+				if (state.world.score > state.world.highestScore) {
+					state.world.highestScore = state.world.score;
+				}
 				eliminateRowsInLockedGrid(state);
 				state.world.hasEliminableRows = false;
 				state.shouldRerender = true;
@@ -892,9 +928,12 @@ function createRenderMemo() {
 			nextTetriminoGrid: Array
 				.from(document.querySelector('#next_tetrimino_grid').children)
 				.map(function (e) { return Array.from(e.children) }),
-			restartOverlay: document.querySelector('#game_over_overlay'),
-			score         : document.querySelector('#player_score_text'),
-			btnPause      : document.querySelector('#btn_pause')
+			restartOverlay : document.querySelector('#game_over_overlay'),
+			score          : document.querySelector('#player_score_text'),
+			highestScore   : document.querySelector('#player_highest_score_text'),
+			btnPause       : document.querySelector('#btn_pause'),
+			guidelinesPanel: document.querySelector('#guidelines_panel'),
+			settingsPanel  : document.querySelector('#settings_panel')
 		},
 	};
 	return memo;
@@ -910,11 +949,16 @@ function renderState(state, memo, t) {
 	if (t !== 0 && !state.shouldRerender) {
 		return;
 	}
+	console.log('renderState(): Render!');
 	// Paused?
 	if (state.world.isPaused === true) {
 		memo.el.btnPause.textContent = 'Resume';
+		memo.el.guidelinesPanel.style.display = 'block';
+		memo.el.settingsPanel.style.display = 'block';
 	} else {
 		memo.el.btnPause.textContent = 'Pause';
+		memo.el.guidelinesPanel.style.display = 'none';
+		memo.el.settingsPanel.style.display = 'none';
 	}
 	// Game Over?
 	if (state.world.isGameOver === true) {
@@ -972,6 +1016,7 @@ function renderState(state, memo, t) {
 	}
 	// Display score:
 	memo.el.score.textContent = state.world.score;
+	memo.el.highestScore.textContent = state.world.highestScore;
 };
 
 //# main
