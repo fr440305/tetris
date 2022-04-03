@@ -23,14 +23,14 @@ body { font-family: sans-serif; }
 #playfield > .row > div {
 	margin : 0;
 	padding: 0;
-	width : 18px;
-	height: 18px;
+	width : 20px;
+	height: 20px;
 }
 #next_tetrimino_grid > .row > div {
 	margin : 0;
 	padding: 0;
-	width : 8px;
-	height: 8px;
+	width : 10px;
+	height: 10px;
 }
 .overlay {
 	position: absolute;
@@ -51,13 +51,14 @@ body { font-family: sans-serif; }
 	margin-right: 10px;
 	border-radius: 5px;
 	border: 1px solid;
+	padding: 5px;
 }
 /*# init */
 .overlay {
 	display: none;
 }
 /*# debug: */
-div { border: 1px solid; }
+div { /* border: 1px solid; */ }
 </style>
 </head>
 <body>
@@ -144,6 +145,7 @@ div { border: 1px solid; }
 function createInputManager() {
 	var userInput = ({
 		eventQueue: [],
+		gridWidth: 20,  // px
 		keyboard: {
 			// key of interests:
 			' ': false,
@@ -154,11 +156,11 @@ function createInputManager() {
 			isTouching: false,
 			x: 0,
 			y: 0,
-			startX: 0,
-			startY: 0,
 			prevX: 0,
 			prevY: 0,
-			//startSince: 0,
+			startX: 0,
+			startY: 0,
+			startSince: 0,
 		}
 	});
 	addEventListeners(userInput);
@@ -170,11 +172,17 @@ function addEventListeners(userInput) {
 	var pauseBtn = document.getElementById('btn_pause');
 	var resumeBtn = document.getElementById('btn_resume');
 	var restartBtn = document.getElementById('btn_restart');
-	var overlays = Array.from(document.getElementsByClassName('overlay'));
-	overlays.forEach(function (e) {
-		e.addEventListener('touchstart', function (e) { e.preventDefault(); });
-		e.addEventListener('touchmove' , function (e) { e.preventDefault(); });
-		e.addEventListener('touchend'  , function (e) { e.preventDefault(); });
+	var overlays = Array.from(
+		document.getElementsByClassName('overlay')
+	);
+	overlays.forEach(function (el) {
+		['touchstart', 'touchmove', 'touchend'].forEach(
+			function (en) {
+				el.addEventListener(en, function (e) {
+					e.preventDefault();
+				});
+			}
+		);
 	});
 	document.body.addEventListener('keydown', function (e) {
 		console.log(e);
@@ -201,33 +209,69 @@ function addEventListeners(userInput) {
 		var y = e.touches[0].clientY;
 		userInput.touch.startX = x;
 		userInput.touch.startY = y;
+		userInput.touch.prevX  = x;
+		userInput.touch.prevY  = y;
 		userInput.touch.x      = x;
 		userInput.touch.y      = y;
 		userInput.touch.isTouching = true;
+		userInput.touch.startSince = e.timeStamp;
+		console.log('addEventListeners():touchstart(): since: ' + e.timeStamp);
 	});
 	playfieldEl.addEventListener('touchmove', function (e) {
-		// XXX TODO
+		var x = e.touches[0].clientX;
+		var y = e.touches[0].clientY;
+		var w = userInput.gridWidth;
+		var dx = x - userInput.touch.prevX;
+		var dy = y - userInput.touch.prevY;
 		e.preventDefault();
-		//console.log(e);
-		userInput.touch.x = e.touches[0].clientX;
-		userInput.touch.y = e.touches[0].clientY;
+		userInput.touch.x = x;
+		userInput.touch.y = y;
+		if (dx * dx + dy * dy > w * w) {
+			console.log('addEventListeners(): move.');
+			userInput.eventQueue.push({
+				type: 'TouchMove',
+				data: {
+					dx: dx, dy: dy,
+				}
+			});
+			userInput.touch.prevX = x;
+			userInput.touch.prevY = y;
+		}
 	});
 	playfieldEl.addEventListener('touchend', function (e) {
-		// XXX TODO
+		var dt = e.timeStamp - userInput.touch.startSince;
+		var dx = userInput.touch.x - userInput.touch.startX;
+		var dy = userInput.touch.y - userInput.touch.startY;
+		var w  = userInput.gridWidth;
 		e.preventDefault();
 		userInput.touch.isTouching = false;
+		if ((dt < 200) && (dx * dx + dy * dy < w * w)) {
+			console.log('addEventListeners(): tap.');
+			userInput.eventQueue.push({
+				type: 'TouchTap',
+				data: null,
+			});
+		}
 	});
 	pauseBtn.addEventListener('click', function () {
-		userInput.eventQueue.push({type: 'BtnClick', data: 'Pause'});
+		userInput.eventQueue.push({
+			type: 'BtnClick', data: 'Pause'
+		});
 	});
 	resumeBtn.addEventListener('click', function () {
-		userInput.eventQueue.push({type: 'BtnClick', data: 'Resume'});
+		userInput.eventQueue.push({
+			type: 'BtnClick', data: 'Resume'
+		});
 	});
 	resumeBtn.addEventListener('touchstart', function () {
-		userInput.eventQueue.push({type: 'BtnClick', data: 'Resume'});
+		userInput.eventQueue.push({
+			type: 'BtnClick', data: 'Resume'
+		});
 	});
 	restartBtn.addEventListener('click', function () {
-		userInput.eventQueue.push({type: 'BtnClick', data: 'Restart'});
+		userInput.eventQueue.push({
+			type: 'BtnClick', data: 'Restart'
+		});
 	});
 };
 
@@ -278,8 +322,6 @@ function createState() {
 				' ': 'pause-or-restart'
 			}
 		},
-		debug: {
-		}
 	};
 	updateHardDropDestinationRow(state);
 	return state;
@@ -326,12 +368,8 @@ var Tetriminos = {
 };
 
 var TetriminoColors = {
-	I: 'cyan'  ,
-	O: 'yellow',
-	T: 'purple',
-	S: 'green' ,
-	Z: 'red'   ,
-	J: 'blue'  ,
+	I: 'cyan'  , O: 'yellow', T: 'purple',
+	S: 'green' , Z: 'red'   , J: 'blue'  ,
 	L: 'brown' ,
 };
 
@@ -394,7 +432,7 @@ function moveCurrentTetriminoToward(state, direction) {
 
 function updateHardDropDestinationRow(state) {
 	// Don't have to consider the case when hard drop position is
-	// not available. Because it only time it would happened is that
+	// not available. Because it only happens when
 	// the game is over.
 	var r;
 	var tet = state.world.currentTetrimino;
@@ -433,8 +471,10 @@ function lockCurrentTetrimino(state) {
 
 function canCurrentTetriminoSpinToward(state, isClockwise) {
 	var tet = state.world.currentTetrimino;
-	var len = (tet.type === 'I' || tet.type === 'O') ? 4 : 3;
-	var nextMatrix = Array(len).fill(0).map(function (e) { return Array(len).fill(0) });
+	var len = tet.matrix.length;
+	var nextMatrix = Array(len).fill(0).map(
+		function (e) { return Array(len).fill(0) }
+	);
 	var r;
 	var c;
 	var translatedR;
@@ -620,9 +660,9 @@ function spawnTetrimino(state) {
 }
 
 function updateState(state, input, t) {
-	var leftDirection  = {r: 0, c: -1}
-	var rightDirection = {r: 0, c:  1}
-	var downDirection  = {r: 1, c:  0}; // default: down
+	var leftDirection  = {r: 0, c: -1};
+	var rightDirection = {r: 0, c:  1};
+	var downDirection  = {r: 1, c:  0};
 	// Determine current state:
 	var isFalling = (
 		t > state.world.tLastSpawned &&
@@ -637,6 +677,26 @@ function updateState(state, input, t) {
 		!state.world.isPaused &&
 		!state.world.isGameOver
 	);
+	// Lambdas:
+	var tryMoveCurrentTetriminoToward = function (state, direction) {
+		if (canChangeCurrentTetrimino) {
+			if (canCurrentTetriminoMoveToward(state, direction)) {
+				moveCurrentTetriminoToward(state, direction);
+				updateHardDropDestinationRow(state);
+				state.shouldRerender = true;
+			}
+		}
+	};
+	var trySpinCurrentTetriminoToward = function (state, isClockwise) {
+		if (canChangeCurrentTetrimino) {
+			if (canCurrentTetriminoSpinToward(state, isClockwise)) {
+				spinCurrentTetriminoToward(state, isClockwise);
+				updateHardDropDestinationRow(state);
+				state.shouldRerender = true;
+			}
+		}
+	};
+	// User input:
 	var inputEvent;
 	var operation;
 	// Rendering control: change shouldRerender to true only when necessary.
@@ -654,28 +714,11 @@ function updateState(state, input, t) {
 					state.shouldRerender = true;
 				}
 			} else if (operation === 'move-left') {
-				if (canChangeCurrentTetrimino) {
-					if (canCurrentTetriminoMoveToward(state, leftDirection)) {
-						moveCurrentTetriminoToward(state, leftDirection);
-						updateHardDropDestinationRow(state);
-						state.shouldRerender = true;
-					}
-				}
+				tryMoveCurrentTetriminoToward(state, leftDirection);
 			} else if (operation === 'move-right') {
-				if (canChangeCurrentTetrimino) {
-					if (canCurrentTetriminoMoveToward(state, rightDirection)) {
-						moveCurrentTetriminoToward(state, rightDirection);
-						updateHardDropDestinationRow(state);
-						state.shouldRerender = true;
-					}
-				}
+				tryMoveCurrentTetriminoToward(state, rightDirection);
 			} else if (operation === 'move-down') {
-				if (canChangeCurrentTetrimino) {
-					if (canCurrentTetriminoMoveToward(state, downDirection)) {
-						moveCurrentTetriminoToward(state, downDirection);
-						state.shouldRerender = true;
-					}
-				}
+				tryMoveCurrentTetriminoToward(state, downDirection);
 			} else if (operation === 'hard-drop') {
 				if (canChangeCurrentTetrimino) {
 					hardDropCurrentTetrimino(state);
@@ -683,17 +726,9 @@ function updateState(state, input, t) {
 					state.shouldRerender = true;
 				}
 			} else if (operation === 'spin-clockwise') {
-				if (canCurrentTetriminoSpinToward(state, true)) {
-					spinCurrentTetriminoToward(state, true);
-					updateHardDropDestinationRow(state);
-					state.shouldRerender = true;
-				}
+				trySpinCurrentTetriminoToward(state, true);
 			} else if (operation === 'spin-counter-clockwise') {
-				if (canCurrentTetriminoSpinToward(state, false)) {
-					spinCurrentTetriminoToward(state, false);
-					updateHardDropDestinationRow(state);
-					state.shouldRerender = true;
-				}
+				trySpinCurrentTetriminoToward(state, false);
 			}
 		} else if (inputEvent.type === 'BtnClick') {
 			if (inputEvent.data === 'Pause') {
@@ -707,6 +742,23 @@ function updateState(state, input, t) {
 			} else if (inputEvent.data === 'Restart') {
 				restartGame(state);
 				state.shouldRerender = true;
+			}
+		} else if (inputEvent.type === 'TouchTap') {
+			trySpinCurrentTetriminoToward(state, false);
+		} else if (inputEvent.type === 'TouchMove') {
+			if (Math.abs(inputEvent.data.dy) > 2 * Math.abs(inputEvent.data.dx)) {
+				// Veritcal movement:
+				if (inputEvent.data.dy > 0) {
+					tryMoveCurrentTetriminoToward(state, downDirection);
+				}
+			} else if (Math.abs(inputEvent.data.dx) > 2 * Math.abs(inputEvent.data.dy)) {
+				console.log('Hori');
+				// Horizontal movement:
+				if (inputEvent.data.dx > 0) {
+					tryMoveCurrentTetriminoToward(state, rightDirection);
+				} else if (inputEvent.data.dx < 0) {
+					tryMoveCurrentTetriminoToward(state, leftDirection);
+				}
 			}
 		}
 	}
@@ -743,9 +795,8 @@ function updateState(state, input, t) {
 			}
 		}
 	} else {
-		// ... ???
+		// XXX
 	}
-
 	state.t = t;
 };
 
@@ -769,8 +820,6 @@ function createRenderMemo() {
 			score            : document.querySelector('#player_score_text'),
 			btnPauseOrRestart: document.querySelector('#btn_pause')
 		},
-		//prevPlayfield: [],  // Optimization
-		//currentPlayfield: [],
 	};
 	console.log(memo.el.playfield);
 	return memo;
