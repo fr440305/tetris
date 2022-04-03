@@ -8,13 +8,17 @@ body { font-family: sans-serif; }
 /*# bootstrap-style classes: */
 .container { display: flex; flex-direction: column; }
 .row       { display: flex; flex-direction: row;    }
+.fluid     { width    : 100%; }
+.fill      { flex-grow: 1   ; }
 .align-center   { align-items    : center; }
 .justify-center { justify-content: center; }
+.text-center { text-align: center; }
 .btn {
-	border-radius: 5px;
+	border-radius: 4px;
 	background: black;
 	color: white;
-	padding: 8px;
+	padding: 4px;
+	text-align: center;
 }
 /*# game-spec: */
 #app > .row {
@@ -47,40 +51,37 @@ body { font-family: sans-serif; }
 .overlay .btn {
 	z-index: 100;
 }
-#playfield {
-	margin-right: 10px;
-	border-radius: 5px;
+.ma-4 {
+	margin: 4px;
+}
+.panel {
+	border-radius: 4px;
 	border: 1px solid;
-	padding: 5px;
+	padding: 4px;
 }
 /*# init */
 .overlay {
 	display: none;
 }
 /*# debug: */
-div { /* border: 1px solid; */ }
+div {/*border: 1px solid;*/}
 </style>
 </head>
 <body>
-<div id="pause_overlay" class="overlay container align-center">
-	<div class="row">
-		<div class="col btn" id="btn_resume">Resume</div>
-	</div>
-</div>
 <div id="game_over_overlay" class="overlay container align-center justify-center">
 	<div class="row">
 		<div class="col btn" id="btn_restart">Restart</div>
 	</div>
 </div>
 <div id="app" class="container align-center ">
-	<div class="row justify-center ">
+	<div class="row fluid justify-center">
 		<div class="col">
 			<h2>- T E T R I S -</h2>
 		</div>
 	</div>
-	<div class="row justify-center">
-		<div class="col">
-			<div id="playfield" class="container">
+	<div class="row fluid justify-center">
+		<div class="col ma-4">
+			<div id="playfield" class="container panel">
 				<div class="row"> <div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div> </div>
 				<div class="row"> <div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div> </div>
 				<div class="row"> <div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div> </div>
@@ -103,12 +104,12 @@ div { /* border: 1px solid; */ }
 				<div class="row"> <div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div> </div>
 			</div>
 		</div>
-		<div class="col">
+		<div class="col fill">
 			<div class="container side-bar">
 				<div class="row">
-					<div class="col">
-						<div class="next-tetrimino-panel container">
-							<div class="row">Upcoming</div>
+					<div class="col fill fluid panel ma-4">
+						<div class="container">
+							<div class="row justify-center">Upcoming</div>
 							<div class="row justify-center">
 								<div class="col">
 									<div id="next_tetrimino_grid" class="container">
@@ -123,12 +124,12 @@ div { /* border: 1px solid; */ }
 					</div>
 				</div>
 				<div class="row">
-					<div class="col">
-						<div class="player-score">Score: <span id="player_score_text"></span></div>
+					<div class="col fill fluid panel ma-4">
+						<div class="player-score justify-center text-center">Score: <span id="player_score_text"></span></div>
 					</div>
 				</div>
-				<div class="row">
-					<div class="col">
+				<div class="row fluid">
+					<div class="col fill fluid ma-4">
 						<div class="btn" id="btn_pause">Pause</div>
 					</div>
 				</div>
@@ -136,10 +137,8 @@ div { /* border: 1px solid; */ }
 		</div>
 	</div>
 </div>
-<pre><code id="debug_input"></code></pre>
-<pre><code id="debug_state"></code></pre>
-<script>
 
+<script>
 //# input
 
 function createInputManager() {
@@ -255,20 +254,15 @@ function addEventListeners(userInput) {
 	});
 	pauseBtn.addEventListener('click', function () {
 		userInput.eventQueue.push({
-			type: 'BtnClick', data: 'Pause'
-		});
-	});
-	resumeBtn.addEventListener('click', function () {
-		userInput.eventQueue.push({
-			type: 'BtnClick', data: 'Resume'
-		});
-	});
-	resumeBtn.addEventListener('touchstart', function () {
-		userInput.eventQueue.push({
-			type: 'BtnClick', data: 'Resume'
+			type: 'BtnClick', data: 'TogglePause'
 		});
 	});
 	restartBtn.addEventListener('click', function () {
+		userInput.eventQueue.push({
+			type: 'BtnClick', data: 'Restart'
+		});
+	});
+	restartBtn.addEventListener('touchstart', function () {
 		userInput.eventQueue.push({
 			type: 'BtnClick', data: 'Restart'
 		});
@@ -317,8 +311,8 @@ function createState() {
 				'A': 'move-left',
 				'S': 'move-down',
 				'D': 'move-right',
-				'J': 'spin-clockwise',
-				'K': 'spin-counter-clockwise',
+				'J': 'spin-counter-clockwise',
+				'K': 'spin-clockwise',
 				' ': 'pause-or-restart'
 			}
 		},
@@ -731,11 +725,9 @@ function updateState(state, input, t) {
 				trySpinCurrentTetriminoToward(state, false);
 			}
 		} else if (inputEvent.type === 'BtnClick') {
-			if (inputEvent.data === 'Pause') {
-				console.log('updateState(): pause?!');
-				pauseGame(state);
+			if (inputEvent.data === 'TogglePause') {
+				togglePauseState(state);
 				state.shouldRerender = true;
-				console.log('updateState(): pause: ' + state.world.isPaused);
 			} else if (inputEvent.data === 'Resume') {
 				resumeGame(state);
 				state.shouldRerender = true;
@@ -815,15 +807,16 @@ function createRenderMemo() {
 					.from(document.querySelector('#next_tetrimino_grid').children)
 					.map(function (e) { return Array.from(e.children) })
 			),
-			pauseOverlay     : document.querySelector('#pause_overlay'),
-			restartOverlay   : document.querySelector('#game_over_overlay'),
-			score            : document.querySelector('#player_score_text'),
-			btnPauseOrRestart: document.querySelector('#btn_pause')
+			//pauseOverlay     : document.querySelector('#pause_overlay'),
+			restartOverlay: document.querySelector('#game_over_overlay'),
+			score         : document.querySelector('#player_score_text'),
+			btnPause      : document.querySelector('#btn_pause')
 		},
 	};
 	console.log(memo.el.playfield);
 	return memo;
 }; 
+
 function renderState(state, memo, t) {
 	var tet = state.world.currentTetrimino;
 	var nextType = state.world.upcomingTetriminoTypes[0];
@@ -836,10 +829,9 @@ function renderState(state, memo, t) {
 	}
 	// Paused?
 	if (state.world.isPaused === true) {
-		memo.el.pauseOverlay.style.display = 'block';
-		return;
+		memo.el.btnPause.textContent = 'Resume';
 	} else {
-		memo.el.pauseOverlay.style.display = 'none';
+		memo.el.btnPause.textContent = 'Pause';
 	}
 	// Game Over?
 	if (state.world.isGameOver === true) {
@@ -860,11 +852,13 @@ function renderState(state, memo, t) {
 			memo.el.nextTetriminoGrid[r][c].style.background = 'white';
 		}
 	}
-	// Draw hard drop hint:
-	for (r = 0; r < tet.matrix.length; r++) {
-		for (c = 0; c < tet.matrix[r].length; c++) {
-			if (tet.matrix[r][c] !== 0) {
-				memo.el.playfield[state.world.hardDropDestinationRow + r][tet.c + c].style.background = 'grey';
+	// Draw hard drop hint (if paused, don't draw):
+	if (!state.world.isPaused) {
+		for (r = 0; r < tet.matrix.length; r++) {
+			for (c = 0; c < tet.matrix[r].length; c++) {
+				if (tet.matrix[r][c] !== 0) {
+					memo.el.playfield[state.world.hardDropDestinationRow + r][tet.c + c].style.background = 'grey';
+				}
 			}
 		}
 	}
