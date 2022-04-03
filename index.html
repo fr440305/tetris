@@ -115,8 +115,6 @@ body { font-family: sans-serif; }
 	background: black;
 	transform: translate(6px, 6px);
 }
-
-
 #next_tetrimino_grid > .row > div {
 	margin : 0;
 	padding: 0;
@@ -220,12 +218,37 @@ div {/*border: 1px solid;*/}
 						<div class="btn" id="btn_pause">Pause</div>
 					</div>
 				</div>
+				<div class="row">
+					<div class="col fill fluid panel ma-4">
+						Mobile: <b>Drag</b> the finger through the playfield to move the current tetrimino.
+						<b>Tap</b> the playfield to rotate the current tetrimino counter-clockwise.
+					</div>
+				</div>
 			</div>
+		</div>
+	</div>
+	<div class="row fluid justify-center text-center">
+		<div class="col ma-4">
+			Implemented by
+			<a href="https://blog.wshtan.net/">@fr440305</a> |
+			<a href="https://github.com/fr440305/tetris/blob/master/index.html">Source Code</a>
 		</div>
 	</div>
 </div>
 
 <script>
+
+
+/* TODO (fr44 2022-04-03)
+ *
+ * 0. Game tutorial: Show text
+ * 1. Game Restart.
+ * 2. Setting: Configuring key map and tapping behavior
+ * 3. Dark theme
+ * 4. Local Storage and Highest score
+ * 5. Level and difficulty
+ */
+
 //# input
 
 function createInputManager() {
@@ -271,7 +294,6 @@ function addEventListeners(userInput) {
 		);
 	});
 	document.body.addEventListener('keydown', function (e) {
-		console.log(e);
 		var k  = e.key.toUpperCase();
 		if (userInput.keyboard.hasOwnProperty(k)) {
 			e.preventDefault();
@@ -280,7 +302,6 @@ function addEventListeners(userInput) {
 		}
 	});
 	document.body.addEventListener('keyup', function (e) {
-		console.log(e);
 		var k  = e.key.toUpperCase();
 		if (userInput.keyboard.hasOwnProperty(k)) {
 			e.preventDefault();
@@ -290,7 +311,6 @@ function addEventListeners(userInput) {
 	});
 	playfieldEl.addEventListener('touchstart', function (e) {
 		e.preventDefault();
-		//console.log(e);
 		var x = e.touches[0].clientX;
 		var y = e.touches[0].clientY;
 		userInput.touch.startX = x;
@@ -301,7 +321,6 @@ function addEventListeners(userInput) {
 		userInput.touch.y      = y;
 		userInput.touch.isTouching = true;
 		userInput.touch.startSince = e.timeStamp;
-		console.log('addEventListeners():touchstart(): since: ' + e.timeStamp);
 	});
 	playfieldEl.addEventListener('touchmove', function (e) {
 		var x = e.touches[0].clientX;
@@ -313,7 +332,6 @@ function addEventListeners(userInput) {
 		userInput.touch.x = x;
 		userInput.touch.y = y;
 		if (dx * dx + dy * dy > w * w) {
-			console.log('addEventListeners(): move.');
 			userInput.eventQueue.push({
 				type: 'TouchMove',
 				data: {
@@ -332,7 +350,6 @@ function addEventListeners(userInput) {
 		e.preventDefault();
 		userInput.touch.isTouching = false;
 		if ((dt < 200) && (dx * dx + dy * dy < w * w)) {
-			console.log('addEventListeners(): tap.');
 			userInput.eventQueue.push({
 				type: 'TouchTap',
 				data: null,
@@ -448,12 +465,6 @@ var Tetriminos = {
 	]
 };
 
-var TetriminoColors = {
-	I: 'cyan'  , O: 'yellow', T: 'purple',
-	S: 'green' , Z: 'red'   , J: 'blue'  ,
-	L: 'brown' ,
-};
-
 function pauseGame(state) {
 	state.world.isPaused = true;
 };
@@ -471,7 +482,7 @@ function togglePauseState(state) {
 };
 
 function restartGame(state) {
-	// XXX TODO(wtan 2022-03-31)
+	// XXX TODO(fr44 2022-03-31)
 	return null;
 };
 
@@ -523,7 +534,6 @@ function updateHardDropDestinationRow(state) {
 			break;
 		}
 	}
-	console.log('updateHardDropDestinationRow(): ' + r);
 	state.world.hardDropDestinationRow = tet.r + r;
 };
 
@@ -640,7 +650,6 @@ function getIndexesOfEliminableRows(state) {
 			ret.push(r);
 		}
 	}
-	console.log(ret);
 	return ret;
 };
 
@@ -678,7 +687,6 @@ function eliminateRowsInLockedGrid(state) {
 	var newLockedGrid = [];
 	var rowSize = state.world.playfieldRowSize;
 	var r;
-	console.log(indexes.length);
 	for (r = 0; r < indexes.length; r++) {
 		newLockedGrid.push(Array(10).fill(''));
 	}
@@ -687,7 +695,6 @@ function eliminateRowsInLockedGrid(state) {
 			newLockedGrid.push(state.world.lockedGrid[r]);
 		}
 	}
-	console.log(newLockedGrid);
 	state.world.lockedGrid = newLockedGrid;
 }
 
@@ -785,11 +792,9 @@ function updateState(state, input, t) {
 	// Read user input and update tet position:
 	while (input.eventQueue.length !== 0) {
 		inputEvent = input.eventQueue.shift();
-		console.log('updateState(): inputEvent: ' + JSON.stringify(inputEvent));
 		if (inputEvent.type === 'KeyDown') {
 			operation = state.config.keyMap[inputEvent.data];
 			if (operation === 'pause-or-restart') {
-				console.log('updateState(): pause!');
 				if (state.world.isGameOver === false) {
 					togglePauseState(state);
 					state.shouldRerender = true;
@@ -831,7 +836,6 @@ function updateState(state, input, t) {
 					tryMoveCurrentTetriminoToward(state, downDirection);
 				}
 			} else if (Math.abs(inputEvent.data.dx) > 2 * Math.abs(inputEvent.data.dy)) {
-				console.log('Hori');
 				// Horizontal movement:
 				if (inputEvent.data.dx > 0) {
 					tryMoveCurrentTetriminoToward(state, rightDirection);
@@ -873,9 +877,7 @@ function updateState(state, input, t) {
 				state.shouldRerender = true;
 			}
 		}
-	} else {
-		// XXX
-	}
+	} else { /* XXX */ }
 	state.t = t;
 };
 
@@ -884,25 +886,19 @@ function updateState(state, input, t) {
 function createRenderMemo() {
 	var memo = {
 		el: {
-			playfield: (
-				Array
-					.from(document.querySelector('#playfield').children)
-					.map(function (e) { return Array.from(e.children) })
-			),
-			nextTetriminoGrid: (
-				Array
-					.from(document.querySelector('#next_tetrimino_grid').children)
-					.map(function (e) { return Array.from(e.children) })
-			),
-			//pauseOverlay     : document.querySelector('#pause_overlay'),
+			playfield: Array
+				.from(document.querySelector('#playfield').children)
+				.map(function (e) { return Array.from(e.children) }),
+			nextTetriminoGrid: Array
+				.from(document.querySelector('#next_tetrimino_grid').children)
+				.map(function (e) { return Array.from(e.children) }),
 			restartOverlay: document.querySelector('#game_over_overlay'),
 			score         : document.querySelector('#player_score_text'),
 			btnPause      : document.querySelector('#btn_pause')
 		},
 	};
-	console.log(memo.el.playfield);
 	return memo;
-}; 
+};
 
 function renderState(state, memo, t) {
 	var tet = state.world.currentTetrimino;
