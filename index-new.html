@@ -21,15 +21,102 @@ body { font-family: sans-serif; }
 	text-align: center;
 }
 /*# game-spec: */
+#app {
+	max-width: 500px;
+	margin: 0 auto;
+}
 #app > .row {
 	justify-content: center;
 }
 #playfield > .row > div {
 	margin : 0;
 	padding: 0;
-	width : 20px;
-	height: 20px;
+	background: white;
+	border: 2px solid;
+	border-color: white;
+	width : 16px;
+	height: 16px;
 }
+#playfield > .row > .active-I {
+	background-image: linear-gradient(to bottom right, white, cyan);
+	border-top-color: white;
+	border-left-color: white;
+	border-bottom-color: cyan;
+	border-right-color: cyan;
+} #playfield > .row > .locked-I , .locked-I {
+	background: cyan;
+	border-color: cyan;
+}
+#playfield > .row > .active-O {
+	background-image: linear-gradient(to bottom right, white, yellow);
+	border-top-color: white;
+	border-left-color: white;
+	border-bottom-color: yellow;
+	border-right-color: yellow;
+} #playfield > .row > .locked-O , .locked-O {
+	background: yellow;
+	border-color: yellow;
+}
+#playfield > .row > .active-T {
+	background-image: linear-gradient(to bottom right, white, purple);
+	border-top-color: white;
+	border-left-color: white;
+	border-bottom-color: purple;
+	border-right-color: purple;
+} #playfield > .row > .locked-T , .locked-T {
+	background: purple;
+	border-color: purple;
+}
+#playfield > .row > .active-S {
+	background-image: linear-gradient(to bottom right, white, green);
+	border-top-color: white;
+	border-left-color: white;
+	border-bottom-color: green;
+	border-right-color: green;
+} #playfield > .row > .locked-S , .locked-S {
+	background: green;
+	border-color: green;
+}
+#playfield > .row > .active-Z {
+	background-image: linear-gradient(to bottom right, white, red);
+	border-top-color: white;
+	border-left-color: white;
+	border-bottom-color: red;
+	border-right-color: red;
+} #playfield > .row > .locked-Z , .locked-Z {
+	background: red;
+	border-color: red;
+}
+#playfield > .row > .active-J {
+	background-image: linear-gradient(to bottom right, white, blue);
+	border-top-color: white;
+	border-left-color: white;
+	border-bottom-color: blue;
+	border-right-color: blue;
+} #playfield > .row > .locked-J , .locked-J {
+	background: blue;
+	border-color: blue;
+}
+#playfield > .row > .active-L {
+	background-image: linear-gradient(to bottom right, white, orange);
+	border-top-color: white;
+	border-left-color: white;
+	border-bottom-color: orange;
+	border-right-color: orange;
+} #playfield > .row > .locked-L , .locked-L {
+	background: orange;
+	border-color: orange;
+}
+#playfield > .row > .hard-drop-destination::after {
+	position: absolute;
+	width: 8px;
+	height: 8px;
+	content: "";
+	background: black;
+	transform: translate(6px, 6px);
+}
+
+
 #next_tetrimino_grid > .row > div {
 	margin : 0;
 	padding: 0;
@@ -843,13 +930,13 @@ function renderState(state, memo, t) {
 	// Clean the playfield:
 	for (r = 0; r < state.world.playfieldRowSize; r++) {
 		for (c = 0; c < state.world.playfieldColSize; c++) {
-			memo.el.playfield[r][c].style.background = 'white';
+			memo.el.playfield[r][c].removeAttribute('class'); // clean styles
 		}
 	}
 	// Clean the next display:
 	for (r = 0; r < 4; r++) {
 		for (c = 0; c < 4; c++) {
-			memo.el.nextTetriminoGrid[r][c].style.background = 'white';
+			memo.el.nextTetriminoGrid[r][c].removeAttribute('class');
 		}
 	}
 	// Draw hard drop hint (if paused, don't draw):
@@ -857,7 +944,7 @@ function renderState(state, memo, t) {
 		for (r = 0; r < tet.matrix.length; r++) {
 			for (c = 0; c < tet.matrix[r].length; c++) {
 				if (tet.matrix[r][c] !== 0) {
-					memo.el.playfield[state.world.hardDropDestinationRow + r][tet.c + c].style.background = 'grey';
+					memo.el.playfield[state.world.hardDropDestinationRow + r][tet.c + c].classList.add('hard-drop-destination');
 				}
 			}
 		}
@@ -866,7 +953,8 @@ function renderState(state, memo, t) {
 	for (r = 0; r < tet.matrix.length; r++) {
 		for (c = 0; c < tet.matrix[r].length; c++) {
 			if (tet.matrix[r][c] === 1) {
-				memo.el.playfield[tet.r + r][tet.c + c].style.background = TetriminoColors[tet.type];
+				memo.el.playfield[tet.r + r][tet.c + c].classList.remove('hard-drop-destination');
+				memo.el.playfield[tet.r + r][tet.c + c].classList.add('active-' + tet.type);
 			}
 		}
 	}
@@ -874,7 +962,7 @@ function renderState(state, memo, t) {
 	for (r = 0; r < state.world.playfieldRowSize; r++) {
 		for (c = 0; c < state.world.playfieldColSize; c++) {
 			if (state.world.lockedGrid[r][c] !== '') {
-				memo.el.playfield[r][c].style.background = TetriminoColors[state.world.lockedGrid[r][c]];
+				memo.el.playfield[r][c].classList.add('locked-' + state.world.lockedGrid[r][c]);
 			}
 		}
 	}
@@ -882,7 +970,7 @@ function renderState(state, memo, t) {
 	for (r = 0; r < nextMatrix.length; r++) {
 		for (c = 0; c < nextMatrix[r].length; c++) {
 			if (nextMatrix[r][c] === 1) {
-				memo.el.nextTetriminoGrid[r][c].style.background = TetriminoColors[nextType];
+				memo.el.nextTetriminoGrid[r][c].classList.add('locked-' + nextType);
 			}
 		}
 	}
