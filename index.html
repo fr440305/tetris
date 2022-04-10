@@ -266,18 +266,14 @@ div {/*border: 1px solid;*/}
 		</div>
 	</div>
 </div>
-
 <script>
-
 
 /* TODO (fr44 2022-04-03)
  *
- * 0. Game tutorial: Show text
  * 1. Game Restart.
  * 2. Setting: Configuring key map and tapping behavior
  * 3. Dark theme
  * 4. Local Storage and Highest score
- * 5. Level and difficulty
  */
 
 //# input
@@ -414,6 +410,7 @@ function createState() {
 			playfieldRowSize: 20,
 			playfieldColSize: 10,
 			score: 0,
+			level: 0,
 			highestScore: 0,
 			isPaused: false,
 			isGameOver: false,
@@ -440,9 +437,7 @@ function createState() {
 			tLastLocked  : -1,
 			tLastRestart : -1,
 		},
-		config: {
-			// The config.difficulty property will affect world.dropWaitingTime:
-			difficulty: 0,
+		settings: {
 			keyMap: {
 				'W': 'hard-drop',
 				'A': 'move-left',
@@ -829,7 +824,7 @@ function updateState(state, input, t) {
 	while (input.eventQueue.length !== 0) {
 		inputEvent = input.eventQueue.shift();
 		if (inputEvent.type === 'KeyDown') {
-			operation = state.config.keyMap[inputEvent.data];
+			operation = state.settings.keyMap[inputEvent.data];
 			if (operation === 'pause-or-restart') {
 				if (state.world.isGameOver === false) {
 					togglePauseState(state);
@@ -864,7 +859,7 @@ function updateState(state, input, t) {
 				state.shouldRerender = true;
 			}
 		} else if (inputEvent.type === 'TouchTap') {
-			trySpinCurrentTetriminoToward(state, state.config.shouldSpinClockwiseWhenTapping);
+			trySpinCurrentTetriminoToward(state, state.settings.shouldSpinClockwiseWhenTapping);
 		} else if (inputEvent.type === 'TouchMove') {
 			if (Math.abs(inputEvent.data.dy) > 2 * Math.abs(inputEvent.data.dx)) {
 				// Veritcal movement:
@@ -898,6 +893,8 @@ function updateState(state, input, t) {
 		if (state.world.hasEliminableRows) {
 			if (t - state.world.tLastLocked > state.world.eliminationWaitingTime) {
 				state.world.score += calculateEliminationScore(state);
+				state.world.level = Math.floor(state.world.score / 500);
+				state.world.dropWaitingTime = Math.max(300, 1000-100*state.world.level);
 				if (state.world.score > state.world.highestScore) {
 					state.world.highestScore = state.world.score;
 				}
