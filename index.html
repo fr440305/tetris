@@ -456,6 +456,34 @@ function createState() {
 	return state;
 };
 
+function loadStateFromLocalStorage() {
+	var stateJson = '';
+	var state = null;
+	var e = null;
+	if (!window.localStorage) {
+		return false;
+	}
+	stateJson = window.localStorage.getItem('tetris-state');
+	if (!stateJson) {
+		return false;
+	}
+	try {
+		state = JSON.parse(stateJson);
+	} catch (e) {
+		console.log(e);
+		return false;
+	}
+	return state;
+};
+
+function saveStateIntoLocalStorage(state) {
+	var stateJson = JSON.stringify(state);
+	if (!window.localStorage) {
+		return false;
+	}
+	return window.localStorage.setItem('tetris-state', stateJson);
+};
+
 var Tetriminos = {
 	I: [
 		[0, 0, 0, 0],
