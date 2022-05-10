@@ -278,7 +278,7 @@ div {/*border: 1px solid;*/}
 
 //# input
 
-function createInputManager() {
+function createInputWatcher() {
 	var userInput = ({
 		eventQueue: [],
 		gridWidth: 20,  // px
@@ -1050,11 +1050,11 @@ function renderState(state, memo, t) {
 //# main
 
 (function () {
-	var inputManager = createInputManager();
+	var inputWatcher = createInputWatcher();
 	var gameState    = createState();
 	var renderMemo   = createRenderMemo();
 	var loop = function (t) {
-		updateState(gameState, inputManager, t);
+		updateState(gameState, inputWatcher, t);
 		renderState(gameState, renderMemo  , t);
 		window.requestAnimationFrame(loop);
 	};
